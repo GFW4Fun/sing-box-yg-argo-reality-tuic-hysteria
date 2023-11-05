@@ -18,6 +18,9 @@ https://github.com/MatsuriDayo/nekoray/releases
 
 Android
 https://github.com/MatsuriDayo/NekoBoxForAndroid/releases
+
+iOS
+https://apps.apple.com/us/app/streisand/id6450534064
 ```
 
 ## Source
