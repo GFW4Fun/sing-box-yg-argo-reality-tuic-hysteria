@@ -16,4 +16,5 @@ bash <(curl -Ls https://raw.githubusercontent.com/GFW4Fun/sing-box-yg/master/sb.
 https://www.youtube.com/watch?v=QwTapeVPeB0
 https://ygkkk.blogspot.com/2023/10/sing-box-yg.html
 https://gitlab.com/rwkgyg/sing-box-yg
+https://github.com/yonggekkk/sing-box-yg
 ```
