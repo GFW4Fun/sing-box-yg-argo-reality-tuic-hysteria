@@ -6,9 +6,18 @@
 - TUIC-v5
 
    
-## Installer
+## Installer (Server)
 ```
 bash <(curl -Ls https://raw.githubusercontent.com/GFW4Fun/sing-box-yg/master/sb.sh)
+```
+
+## Client
+```
+Windows-Linux
+https://github.com/MatsuriDayo/nekoray/releases
+
+Android
+https://github.com/MatsuriDayo/NekoBoxForAndroid/releases
 ```
 
 ## Source
