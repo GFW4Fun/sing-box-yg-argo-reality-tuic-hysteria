@@ -1,2 +1,19 @@
 # sing-box-yg
-Sing-BOX auto one-key script installer [Vless-Reality, VMESS-WS (TLS), Hysteria2, TUIC5]: try cloudflared ARGO tunnel, dual certificate switch, multiple port jump, custom domain name diversion. Display sharing links, nekobox, nekoray, Clash-Meta configuration, output configuration to eat SFA/SFI/SFW client
+
+- Vless-Reality 
+- VMESS-WS (TLS) Argo TryCloudflare
+- Hysteria-v2
+- TUIC-v5
+
+   
+## Installer
+```
+bash <(curl -Ls https://raw.githubusercontent.com/GFW4Fun/sing-box-yg/master/sb.sh)
+```
+
+## Source
+```
+https://www.youtube.com/watch?v=QwTapeVPeB0
+https://ygkkk.blogspot.com/2023/10/sing-box-yg.html
+https://gitlab.com/rwkgyg/sing-box-yg
+```
