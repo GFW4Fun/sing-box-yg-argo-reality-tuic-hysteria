@@ -1,4 +1,4 @@
-# sing-box-yg-reality-tuic-hysteria
+# sing-box-yg-argo-reality-tuic-hysteria
 
 - Vless-Reality-Vision
 - VMESS-WS (TLS) Argo TryCloudflare
