@@ -109,8 +109,8 @@ fi
 fi
 fi
 v4v6(){
-v4=$(curl -s4m5 ip.gs -k)
-v6=$(curl -s6m5 ip.gs -k)
+v4=$(curl -s4m5 ip.me -k)
+v6=$(curl -s6m5 ip.me -k)
 }
 warpcheck(){
 wgcfv6=$(curl -s6m5 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
@@ -118,7 +118,7 @@ wgcfv4=$(curl -s4m5 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cu
 }
 v6(){
 v4orv6(){
-if [ -z $(curl -s4m5 ip.gs -k) ]; then
+if [ -z $(curl -s4m5 ip.me -k) ]; then
 echo
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 yellow "检测到 纯IPV6 VPS，添加DNS64"
@@ -613,7 +613,9 @@ if [[ "$tls" = "false" ]]; then
 if [[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.txt' ]]; then
 blue "Argo隧道申请成功，域名：$(cat /etc/s-box/argo.txt)" && sleep 2
 elif [[ -z $(ps -e | grep cloudflared) || ! -s '/etc/s-box/argo.txt' ]]; then
-yellow "Argo隧道域名申请失败，请确保Vmess的 $vm_port 端口处于开放状态或者CF官方Argo服务可用" && sleep 2
+yellow "Argo隧道域名申请暂时失败！放心，不影响其它四个主节点正常运行"
+yellow "请确保Vmess的 $vm_port 端口处于开放状态或者CF官方Argo服务可用" && sleep 2
+yellow "后续可在主菜单选项3-3重置申请Argo隧道域名" && sleep 2
 fi
 else
 yellow "因vmess开启了tls，Argo隧道功能不可用" && sleep 2
@@ -643,7 +645,7 @@ systemctl restart sing-box
 }
 ipuuid(){
 uuid=$(jq -r '.inbounds[0].users[0].uuid' /etc/s-box/sb.json)
-serip=$(curl -s4m5 ip.gs -k || curl -s6m5 ip.gs -k)
+serip=$(curl -s4m5 ip.me -k || curl -s6m5 ip.me -k)
 if [[ "$serip" =~ : ]]; then
 sbdnsip='https://[2606:4700:4700::1111]/dns-query'
 server_ip="[$serip]"
@@ -690,7 +692,7 @@ hy2_port=$(jq -r '.inbounds[2].listen_port' /etc/s-box/sb.json)
 hy2_ports=$(iptables -t nat -nL --line 2>/dev/null | grep -w "$hy2_port" | awk '{print $8}' | sed 's/dpts://; s/dpt://' | tr '\n' ',' | sed 's/,$//')
 if [[ -n $hy2_ports ]]; then
 hy2ports=$(echo $hy2_ports | sed 's/:/-/g')
-hyps=$hy2ports
+hyps=$hy2_port,$hy2ports
 else
 hyps=$hy2_port
 fi
@@ -1549,22 +1551,22 @@ systemctl restart sing-box
 }
 readp "1. IPV4优先\n2. IPV6优先\n3. 仅IPV4\n4. 仅IPV6\n请选择：" choose
 if [[ $choose == "1" && -n $v4 ]]; then
-rrpip="prefer_ipv4" && chip && v4_6="IPV4优先：$v4"
+rrpip="prefer_ipv4" && chip && v4_6="IPV4优先($v4)"
 elif [[ $choose == "2" && -n $v6 ]]; then
-rrpip="prefer_ipv6" && chip && v4_6="IPV6优先：$v6"
+rrpip="prefer_ipv6" && chip && v4_6="IPV6优先($v6)"
 elif [[ $choose == "3" && -n $v4 ]]; then
-rrpip="ipv4_only" && chip && v4_6="仅IPV4：$v4"
+rrpip="ipv4_only" && chip && v4_6="仅IPV4($v4)"
 elif [[ $choose == "4" && -n $v6 ]]; then
-rrpip="ipv6_only" && chip && v4_6="仅IPV6：$v6"
+rrpip="ipv6_only" && chip && v4_6="仅IPV6($v6)"
 else 
 red "当前不存在你选择的IPV4/IPV6地址，或者输入错误" && changeip
 fi
-blue "当前已更换的IP优先级：${v4_6}\n"
+blue "当前已更换的IP优先级：${v4_6}" && sb
 }
 changeserv(){
 sbactive
 green "Sing-box配置变更选择如下:"
-readp "1：reality证书更换、其他协议自签证书与域名证书相互切换 (调整证书验证或者TLS)\n2：变更全协议uuid (密码)\n3：重置Argo隧道临时域名 (Argo会因VPS意外重启而失效，可重新获取)\n4：切换本地IPV4/IPV6地址优先\n5：返回上层\n请选择：" menu
+readp "1：reality证书更换、其他协议自签证书与域名证书相互切换 (调整证书验证或者TLS)\n2：变更全协议uuid (密码)\n3：重置Argo隧道临时域名 (Argo会因VPS意外重启而失效，可重新获取)\n4：切换本地IPV4/IPV6地址四档优先级\n0：返回上层\n请选择：" menu
 if [ "$menu" = "1" ];then
 changeym
 elif [ "$menu" = "2" ];then
@@ -1578,8 +1580,8 @@ sb
 fi
 }
 sbymfl(){
-[[ $(systemctl is-active warp-svc) = active ]] && warp_s4_ip="当前IP：$(curl -4sx socks5h://localhost:40000 ip.gs -k)" || warp_s4_ip='无warp-s5的IPV4，黑名单模式'
-[[ $(systemctl is-active warp-svc) = active ]] && warp_s6_ip="当前IP：$(curl -6sx socks5h://localhost:40000 ip.gs -k)" || warp_s6_ip='无warp-s5的IPV6，黑名单模式'
+[[ $(systemctl is-active warp-svc) = active ]] && warp_s4_ip="当前IP：$(curl -4sx socks5h://localhost:40000 ip.me -k)" || warp_s4_ip='无warp-s5的IPV4，黑名单模式'
+[[ $(systemctl is-active warp-svc) = active ]] && warp_s6_ip="当前IP：$(curl -6sx socks5h://localhost:40000 ip.me -k)" || warp_s6_ip='无warp-s5的IPV6，黑名单模式'
 v4v6
 if [[ -z $v4 ]]; then
 vps_ipv4='无本地IPV4，黑名单模式'      
@@ -2184,7 +2186,7 @@ fi
 if [[ -n $(systemctl status sing-box 2>/dev/null | grep -w active) && -f '/etc/s-box/sb.json' ]]; then
 echo -e "Sing-box状态：$green运行中$plain"
 elif [[ -z $(systemctl status sing-box 2>/dev/null | grep -w active) && -f '/etc/s-box/sb.json' ]]; then
-echo -e "Sing-box状态：$yellow未启动，可尝试选择6重启，依旧如此建议卸载重装Sing-box$plain"
+echo -e "Sing-box状态：$yellow未启动，可尝试选择6重启，依旧如此选择10查看日志并反馈，建议卸载重装Sing-box$plain"
 else
 echo -e "Sing-box状态：$red未安装$plain"
 fi
