@@ -8,7 +8,7 @@
    
 ## Installer (Server)
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/GFW4Fun/sing-box-yg/master/sb.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/GFW4Fun/sing-box-yg-argo-reality-tuic-hysteria/master/sb.sh)
 ```
 
 ## Client
