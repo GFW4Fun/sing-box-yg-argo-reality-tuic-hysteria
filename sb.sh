@@ -235,10 +235,10 @@ red "生成bing自签证书失败" && exit
 fi
 echo
 if [[ -f /root/ygkkkca/cert.crt && -f /root/ygkkkca/private.key && -s /root/ygkkkca/cert.crt && -s /root/ygkkkca/private.key ]]; then
-yellow "经检测，之前已使用acme-yg脚本申请过域名证书：$(cat /root/ygkkkca/ca.log) "
-green "是否使用 $(cat /root/ygkkkca/ca.log) 域名证书？"
-yellow "1：不使用！所有协议继续使用自签的证书 (回车默认)"
-yellow "2：使用！所有协议将使用 $(cat /root/ygkkkca/ca.log) 域名证书"
+yellow "经检测，之前已使用ACME-yg脚本申请过ACME域名证书：$(cat /root/ygkkkca/ca.log) "
+green "是否使用 $(cat /root/ygkkkca/ca.log) ACME域名证书？"
+yellow "1：否！使用自签的证书 (回车默认)"
+yellow "2：是！使用 $(cat /root/ygkkkca/ca.log) ACME域名证书"
 readp "请选择：" menu
 if [ -z "$menu" ] || [ "$menu" = "1" ] ; then
 zqzs
@@ -246,16 +246,16 @@ else
 ymzs
 fi
 else
-green "如果有解析好域名，是否再申请一个域名证书？（组成双证书模式，与已生成的自签证书可共存、各协议可独立切换）"
-yellow "1：不申请！所有协议仅使用自签的证书 (回车默认)"
-yellow "2：申请！使用Acme-yg一键脚本申请证书 (支持常规80端口模式与Dns API模式)"
+green "如有解析好域名，是否申请一个ACME域名证书？（组成双证书模式，与已生成的自签证书可共存、各协议可独立切换）"
+yellow "1：否！使用自签的证书 (回车默认)"
+yellow "2：是！使用ACME-yg脚本申请ACME证书 (支持常规80端口模式与Dns API模式)"
 readp "请选择：" menu
 if [ -z "$menu" ] || [ "$menu" = "1" ] ; then
 zqzs
 else
 bash <(curl -Ls https://gitlab.com/rwkgyg/acme-script/raw/main/acme.sh)
 if [[ ! -f /root/ygkkkca/cert.crt && ! -f /root/ygkkkca/private.key && ! -s /root/ygkkkca/cert.crt && ! -s /root/ygkkkca/private.key ]]; then
-red "证书申请失败，继续使用自签证书" 
+red "ACME证书申请失败，继续使用自签证书" 
 zqzs
 else
 ymzs
@@ -331,8 +331,8 @@ vlport && vmport && hy2port && tu5port
 fi
 blue "vless-reality端口：$port_vl_re"
 blue "vmess-ws端口：$port_vm_ws"
-blue "Hysteria2端口：$port_hy2"
-blue "Tuic5端口：$port_tu"
+blue "Hysteria-2端口：$port_hy2"
+blue "Tuic-v5端口：$port_tu"
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 green "四、自动生成各个协议统一的uuid (密码)"
 uuid=$(/etc/s-box/sing-box generate uuid)
@@ -647,11 +647,11 @@ ipuuid(){
 uuid=$(jq -r '.inbounds[0].users[0].uuid' /etc/s-box/sb.json)
 serip=$(curl -s4m5 ip.me -k || curl -s6m5 ip.me -k)
 if [[ "$serip" =~ : ]]; then
-sbdnsip='https://[2606:4700:4700::1111]/dns-query'
+sbdnsip='https://[2001:4860:4860::8888]/dns-query'
 server_ip="[$serip]"
 server_ipcl="$serip"
 else
-sbdnsip='https://1.1.1.1/dns-query'
+sbdnsip='https://8.8.8.8/dns-query'
 server_ip="$serip"
 server_ipcl="$serip"
 fi
@@ -840,6 +840,7 @@ cat > /etc/s-box/sing_box_client.json <<EOF
             },
             {
                 "tag": "dns_fakeip",
+                "strategy": "ipv4_only",
                 "address": "fakeip"
             }
         ],
@@ -1028,11 +1029,11 @@ cat > /etc/s-box/sing_box_client.json <<EOF
   ],
   "route": {
       "geoip": {
-      "download_url": "https://github.com/soffchen/sing-geoip/releases/latest/download/geoip.db",
+      "download_url": "https://cdn.jsdelivr.net/gh/soffchen/sing-geoip@release/geoip.db",
       "download_detour": "select"
     },
     "geosite": {
-      "download_url": "https://github.com/soffchen/sing-geosite/releases/latest/download/geosite.db",
+      "download_url": "https://cdn.jsdelivr.net/gh/soffchen/sing-geosite@release/geosite.db",
       "download_detour": "select"
     },
     "auto_detect_interface": true,
@@ -1241,8 +1242,8 @@ private_key=$(echo "$key_pair" | awk '/PrivateKey/ {print $2}' | tr -d '"')
 public_key=$(echo "$key_pair" | awk '/PublicKey/ {print $2}' | tr -d '"')
 echo "$public_key" > /etc/s-box/public.key
 short_id=$(/etc/s-box/sing-box generate rand --hex 4)
-wget -q -O /etc/s-box/geosite.db https://github.com/soffchen/sing-geosite/releases/latest/download/geosite.db
-wget -q -O /etc/s-box/geoip.db https://github.com/soffchen/sing-geoip/releases/latest/download/geoip.db
+wget -q -O /root/geosite.db https://github.com/soffchen/sing-geosite/releases/latest/download/geosite.db
+wget -q -O /root/geoip.db https://github.com/soffchen/sing-geoip/releases/latest/download/geoip.db
 inssbjsonser && sbservice && sbactive
 if [[ ! $vi =~ lxc|openvz ]]; then
 sysctl -w net.core.rmem_max=2500000 > /dev/null
@@ -1942,8 +1943,8 @@ unins(){
 systemctl stop sing-box >/dev/null 2>&1
 systemctl disable sing-box >/dev/null 2>&1
 rm -f /etc/systemd/system/sing-box.service
-rm -rf /etc/s-box sbyg_update /usr/bin/sb
-kill -15 $(pgrep cloudflared)
+rm -rf /etc/s-box sbyg_update /usr/bin/sb /root/geosite.db /root/geoip.db
+kill -15 $(pgrep cloudflared) >/dev/null 2>&1
 uncronsb
 iptables -t nat -F PREROUTING >/dev/null 2>&1
 netfilter-persistent save >/dev/null 2>&1
