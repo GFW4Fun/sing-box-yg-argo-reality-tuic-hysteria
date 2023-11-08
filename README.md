@@ -8,6 +8,10 @@
    
 ## Installer (Server)
 ```
+bash <(curl -Ls https://gitlab.com/rwkgyg/sing-box-yg/raw/main/sb.sh)
+```
+OR
+```
 bash <(curl -Ls https://raw.githubusercontent.com/GFW4Fun/sing-box-yg-argo-reality-tuic-hysteria/master/sb.sh)
 ```
 
