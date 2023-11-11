@@ -198,7 +198,7 @@ inscertificate(){
 ymzs(){
 ym_vl_re=www.yahoo.com
 blue "Vless-reality的SNI域名默认为 www.yahoo.com"
-blue "Vmess-ws开启TLS，且与Hysteria2、Tuic5都将应用已申请的 $ym 证书"
+blue "Vmess-ws开启TLS，且与Hysteria-2、Tuic-v5都将应用已申请的 $ym 证书"
 tlsyn=true
 ym_vm_ws=$(cat /root/ygkkkca/ca.log 2>/dev/null)
 certificatec_vmess_ws='/root/ygkkkca/cert.crt'
@@ -211,7 +211,7 @@ certificatep_tuic='/root/ygkkkca/private.key'
 zqzs(){
 ym_vl_re=www.yahoo.com
 blue "Vless-reality的SNI域名默认为 www.yahoo.com"
-blue "Vmess-ws关闭TLS，Hysteria2、Tuic5将应用bing自签证书"
+blue "Vmess-ws关闭TLS，Hysteria-2、Tuic-v5将应用bing自签证书"
 tlsyn=false
 ym_vm_ws=www.bing.com
 certificatec_vmess_ws='/etc/s-box/cert.pem'
@@ -235,10 +235,10 @@ red "生成bing自签证书失败" && exit
 fi
 echo
 if [[ -f /root/ygkkkca/cert.crt && -f /root/ygkkkca/private.key && -s /root/ygkkkca/cert.crt && -s /root/ygkkkca/private.key ]]; then
-yellow "经检测，之前已使用ACME-yg脚本申请过ACME域名证书：$(cat /root/ygkkkca/ca.log) "
-green "是否使用 $(cat /root/ygkkkca/ca.log) ACME域名证书？"
+yellow "经检测，之前已使用Acme-yg脚本申请过Acme域名证书：$(cat /root/ygkkkca/ca.log) "
+green "是否使用 $(cat /root/ygkkkca/ca.log) 域名证书？"
 yellow "1：否！使用自签的证书 (回车默认)"
-yellow "2：是！使用 $(cat /root/ygkkkca/ca.log) ACME域名证书"
+yellow "2：是！使用 $(cat /root/ygkkkca/ca.log) 域名证书"
 readp "请选择：" menu
 if [ -z "$menu" ] || [ "$menu" = "1" ] ; then
 zqzs
@@ -246,16 +246,16 @@ else
 ymzs
 fi
 else
-green "如有解析好域名，是否申请一个ACME域名证书？（组成双证书模式，与已生成的自签证书可共存、各协议可独立切换）"
+green "如有解析好域名，是否申请一个Acme域名证书？（组成双证书模式，与已生成的自签证书可共存、各协议可独立切换）"
 yellow "1：否！使用自签的证书 (回车默认)"
-yellow "2：是！使用ACME-yg脚本申请ACME证书 (支持常规80端口模式与Dns API模式)"
+yellow "2：是！使用Acme-yg脚本申请Acme证书 (支持常规80端口模式与Dns API模式)"
 readp "请选择：" menu
 if [ -z "$menu" ] || [ "$menu" = "1" ] ; then
 zqzs
 else
 bash <(curl -Ls https://gitlab.com/rwkgyg/acme-script/raw/main/acme.sh)
 if [[ ! -f /root/ygkkkca/cert.crt && ! -f /root/ygkkkca/private.key && ! -s /root/ygkkkca/cert.crt && ! -s /root/ygkkkca/private.key ]]; then
-red "ACME证书申请失败，继续使用自签证书" 
+red "Acme证书申请失败，继续使用自签证书" 
 zqzs
 else
 ymzs
@@ -276,14 +276,15 @@ do
 [[ -n $(ss -tunlp | grep -w udp | awk '{print $5}' | sed 's/.*://g' | grep -w "$port") || -n $(ss -tunlp | grep -w tcp | awk '{print $5}' | sed 's/.*://g' | grep -w "$port") ]] && yellow "\n端口被占用，请重新输入端口" && readp "自定义端口:" port
 done
 fi
+blue "确认的端口：$port" && sleep 2
 }
 vlport(){
-readp "\n设置vless-reality端口[1-65535] (回车跳过为2000-65535之间的随机端口)：" port
+readp "\n设置Vless-reality端口[1-65535] (回车跳过为2000-65535之间的随机端口)：" port
 chooseport
 port_vl_re=$port
 }
 vmport(){
-readp "\n设置vmess-ws端口[1-65535] (回车跳过为2000-65535之间的随机端口)：" port
+readp "\n设置Vmess-ws端口[1-65535] (回车跳过为2000-65535之间的随机端口)：" port
 chooseport
 port_vm_ws=$port
 }
@@ -300,7 +301,7 @@ port_tu=$port
 insport(){
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 green "三、设置各个协议端口"
-yellow "1：自动生成各个协议的随机端口 (2000-65535范围内)，回车默认"
+yellow "1：自动生成每个协议的随机端口 (2000-65535范围内)，回车默认"
 yellow "2：自定义每个协议端口"
 readp "请输入：" port
 if [ -z "$port" ] || [ "$port" = "1" ] ; then
@@ -329,8 +330,9 @@ port_vm_ws=${numbers[$RANDOM % ${#numbers[@]}]}
 else
 vlport && vmport && hy2port && tu5port
 fi
-blue "vless-reality端口：$port_vl_re"
-blue "vmess-ws端口：$port_vm_ws"
+echo
+blue "Vless-reality端口：$port_vl_re"
+blue "Vmess-ws端口：$port_vm_ws"
 blue "Hysteria-2端口：$port_hy2"
 blue "Tuic-v5端口：$port_tu"
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -591,36 +593,6 @@ cat > /etc/s-box/sb.json <<EOF
 }
 EOF
 }
-cfargo(){
-tls=$(jq -r '.inbounds[1].tls.enabled' /etc/s-box/sb.json)
-vm_port=$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json)
-yellow "更新Cloudflared Argo应用，请稍等……"
-if [[ -n $(ps -e | grep cloudflared) ]]; then
-kill -15 $(pgrep cloudflared)
-fi
-case $(uname -m) in
-aarch64) cpu=arm64;;
-x86_64) cpu=amd64;;
-esac
-curl -sL -o /etc/s-box/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$cpu
-chmod +x /etc/s-box/cloudflared
-/etc/s-box/cloudflared tunnel --url http://localhost:${vm_port} --edge-ip-version auto --no-autoupdate --protocol http2 > argo.log 2>&1 &
-sleep 7
-argo=$(cat argo.log | grep trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
-echo "$argo" > /etc/s-box/argo.txt
-rm -rf argo.log
-if [[ "$tls" = "false" ]]; then
-if [[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.txt' ]]; then
-blue "Argo隧道申请成功，域名：$(cat /etc/s-box/argo.txt)" && sleep 2
-elif [[ -z $(ps -e | grep cloudflared) || ! -s '/etc/s-box/argo.txt' ]]; then
-yellow "Argo隧道域名申请暂时失败！放心，不影响其它四个主节点正常运行"
-yellow "请确保Vmess的 $vm_port 端口处于开放状态或者CF官方Argo服务可用" && sleep 2
-yellow "后续可在主菜单选项3-3重置申请Argo隧道域名" && sleep 2
-fi
-else
-yellow "因vmess开启了tls，Argo隧道功能不可用" && sleep 2
-fi
-}
 sbservice(){
 cat > /etc/systemd/system/sing-box.service <<EOF
 [Unit]
@@ -639,7 +611,7 @@ LimitNOFILE=infinity
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-systemctl enable sing-box
+systemctl enable sing-box >/dev/null 2>&1
 systemctl start sing-box
 systemctl restart sing-box
 }
@@ -676,7 +648,7 @@ vl_port=$(jq -r '.inbounds[0].listen_port' /etc/s-box/sb.json)
 vl_name=$(jq -r '.inbounds[0].tls.server_name' /etc/s-box/sb.json)
 public_key=$(cat /etc/s-box/public.key)
 short_id=$(jq -r '.inbounds[0].tls.reality.short_id[0]' /etc/s-box/sb.json)
-argo=$(cat /etc/s-box/argo.txt)
+argo=$(cat /etc/s-box/argo.log 2>/dev/null | grep trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
 ws_path=$(jq -r '.inbounds[1].transport.path' /etc/s-box/sb.json)
 vm_name=$(jq -r '.inbounds[1].tls.server_name' /etc/s-box/sb.json)
 vm_port=$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json)
@@ -735,7 +707,7 @@ vl_link="vless://$uuid@$server_ip:$vl_port?encryption=none&flow=xtls-rprx-vision
 echo "$vl_link" > /etc/s-box/vl_reality.txt
 red "🚀【 vless-reality-vision 】节点信息如下：" && sleep 2
 echo
-echo "分享链接【v2rayn、v2rayng、nekobox】"
+echo "分享链接【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
 echo -e "${yellow}$vl_link${plain}"
 echo
 echo "二维码【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
@@ -745,12 +717,12 @@ echo
 }
 resvmess(){
 if [[ "$tls" = "false" ]]; then
-if [[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.txt' ]]; then
+if [[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.log' ]]; then
 echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 red "🚀【 vmess-ws(tls)+Argo 】节点信息如下：" && sleep 2
 echo
-echo "分享链接【v2rayn、v2rayng、nekobox】"
+echo "分享链接【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
 echo -e "${yellow}vmess://$(echo '{"add":"www.wto.org","aid":"0","host":"'$argo'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"443","ps":"ygkkk-vm-argo","tls":"tls","sni":"'$argo'","type":"none","v":"2"}' | base64 -w 0)${plain}"
 echo
 echo "二维码【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
@@ -761,7 +733,7 @@ echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 red "🚀【 vmess-ws 】节点信息如下：" && sleep 2
 echo
-echo "分享链接【v2rayn、v2rayng、nekobox】"
+echo "分享链接【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
 echo -e "${yellow}vmess://$(echo '{"add":"'$server_ip'","aid":"0","host":"'$vm_name'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"'$vm_port'","ps":"ygkkk-vm-ws","tls":"","type":"none","v":"2"}' | base64 -w 0)${plain}"
 echo
 echo "二维码【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
@@ -772,7 +744,7 @@ echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 red "🚀【 vmess-ws-tls 】节点信息如下：" && sleep 2
 echo
-echo "分享链接【v2rayn、v2rayng、nekobox】"
+echo "分享链接【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
 echo -e "${yellow}vmess://$(echo '{"add":"'$vm_name'","aid":"0","host":"'$vm_name'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"'$vm_port'","ps":"ygkkk-vm-ws-tls","tls":"tls","sni":"'$vm_name'","type":"none","v":"2"}' | base64 -w 0)${plain}"
 echo
 echo "二维码【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
@@ -789,7 +761,7 @@ hy2_link="hysteria2://$uuid@$sb_hy2_ip:$hy2_port?insecure=$ins_hy2&mport=$hyps&s
 echo "$hy2_link" > /etc/s-box/hy2.txt
 red "🚀【 Hysteria-2 】节点信息如下：" && sleep 2
 echo
-echo "分享链接【nekobox】"
+echo "分享链接【nekobox、小火箭shadowrocket】"
 echo -e "${yellow}$hy2_link${plain}"
 echo
 echo "二维码【nekobox、小火箭shadowrocket】"
@@ -804,7 +776,7 @@ tuic5_link="tuic://$uuid:$uuid@$sb_tu5_ip:$tu5_port?congestion_control=bbr&udp_r
 echo "$tuic5_link" > /etc/s-box/tuic5.txt
 red "🚀【 Tuic-v5 】节点信息如下：" && sleep 2
 echo
-echo "分享链接【nekobox】"
+echo "分享链接【nekobox、小火箭shadowrocket】"
 echo -e "${yellow}$tuic5_link${plain}"
 echo
 echo "二维码【nekobox、小火箭shadowrocket】"
@@ -887,7 +859,7 @@ cat > /etc/s-box/sing_box_client.json <<EOF
       "inet4_address": "172.19.0.1/30",
       "inet6_address": "fdfe:dcba:9876::1/126",
       "auto_route": true,
-      "strict_route": false,
+      "strict_route": true,
       "sniff": true
     }
   ],
@@ -1230,6 +1202,30 @@ a=$hy2_ports
 sed -i "/server:/ s/$/$a/" /etc/s-box/v2rayn_hy2.yaml
 fi
 }
+cfargo(){
+tls=$(jq -r '.inbounds[1].tls.enabled' /etc/s-box/sb.json)
+if [[ "$tls" = "false" ]]; then
+i=0
+while [ $i -le 4 ]; do let i++
+yellow "第$i次刷新验证Cloudflared Argo隧道域名有效性，请稍等……"
+if [[ -n $(ps -e | grep cloudflared) ]]; then
+kill -15 $(pgrep cloudflared) >/dev/null 2>&1
+fi
+/etc/s-box/cloudflared tunnel --url http://localhost:$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json) --edge-ip-version auto --no-autoupdate --protocol http2 > /etc/s-box/argo.log 2>&1 &
+sleep 5
+if [[ -n $(curl -sL https://$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]]; then
+argo=$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
+blue "Argo隧道申请成功且验证有效，域名：$argo" && sleep 2
+break
+fi
+if [ $i -eq 5 ]; then
+yellow "Argo隧道域名验证为不可用，可能过会自动恢复或者再次重置申请" && sleep 2
+fi
+done
+else
+yellow "因vmess开启了tls，Argo隧道功能不可用" && sleep 2
+fi
+}
 instsllsingbox(){
 if [[ -f '/etc/systemd/system/sing-box.service' ]]; then
 red "已安装Sing-box服务，无法再次安装" && exit
@@ -1251,7 +1247,20 @@ sysctl -p > /dev/null
 fi
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 green "五、针对vmess-ws协议，加入Cloudflared-Argo临时隧道功能"
-cfargo && sleep 3
+case $(uname -m) in
+aarch64) cpu=arm64;;
+x86_64) cpu=amd64;;
+esac
+curl -sL -o /etc/s-box/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$cpu
+chmod +x /etc/s-box/cloudflared
+/etc/s-box/cloudflared tunnel --url http://localhost:$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json) --edge-ip-version auto --no-autoupdate --protocol http2 > argo.log 2>&1 &
+sleep 5
+if [[ -n $(curl -sL https://$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]]; then
+argo=$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
+blue "Argo隧道申请成功且验证有效，域名：$argo" && sleep 2
+else
+cfargo
+fi
 curl -sL https://gitlab.com/rwkgyg/sing-box-yg/-/raw/main/version/version | awk -F "更新内容" '{print $1}' | head -n 1 > /etc/s-box/v
 clear
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -1287,7 +1296,7 @@ readp "请输入vless-reality域名 (回车使用www.yahoo.com)：" menu
 ym_vl_re=${menu:-www.yahoo.com}
 a=$(jq -r '.inbounds[0].tls.server_name' /etc/s-box/sb.json)
 b=$(jq -r '.inbounds[0].tls.reality.handshake.server' /etc/s-box/sb.json)
-c=$(cat /etc/s-box/vl_re.txt | cut -d'=' -f5 | cut -d'&' -f1)
+c=$(cat /etc/s-box/vl_reality.txt | cut -d'=' -f5 | cut -d'&' -f1)
 sed -i "23s/$a/$ym_vl_re/" /etc/s-box/sb.json
 sed -i "27s/$b/$ym_vl_re/" /etc/s-box/sb.json
 systemctl restart sing-box
@@ -1564,10 +1573,83 @@ red "当前不存在你选择的IPV4/IPV6地址，或者输入错误" && changei
 fi
 blue "当前已更换的IP优先级：${v4_6}" && sb
 }
+tgsbshow(){
+echo
+yellow "1：重置/设置Telegram机器人的Token、用户ID"
+yellow "0：返回上层"
+readp "请选择【0-1】：" menu
+if [ "$menu" = "1" ]; then
+rm -rf /etc/s-box/sbtg.sh
+readp "输入Telegram机器人Token: " token
+telegram_token=$token
+readp "输入Telegram机器人用户ID: " userid
+telegram_id=$userid
+echo '#!/bin/bash
+export LANG=en_US.UTF-8
+m1=$(cat /etc/s-box/vl_reality.txt 2>/dev/null)
+m2=$(cat /etc/s-box/vm_ws.txt 2>/dev/null)
+m3=$(cat /etc/s-box/vm_ws_argo.txt 2>/dev/null)
+m4=$(cat /etc/s-box/vm_ws_tls.txt 2>/dev/null)
+m5=$(cat /etc/s-box/hy2.txt 2>/dev/null)
+m6=$(cat /etc/s-box/tuic5.txt 2>/dev/null)
+m7=$(cat /etc/s-box/sing_box_client.json 2>/dev/null)
+m8=$(cat /etc/s-box/clash_meta_client.yaml 2>/dev/null)
+message_text_m1=$(echo "$m1")
+message_text_m2=$(echo "$m2")
+message_text_m3=$(echo "$m3")
+message_text_m4=$(echo "$m4")
+message_text_m5=$(echo "$m5")
+message_text_m6=$(echo "$m6")
+message_text_m7=$(echo "$m7" | jq -c .)
+message_text_m8=$(echo "$m8")
+MODE=HTML
+URL="https://api.telegram.org/bottelegram_token/sendMessage"
+res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Vless-reality-vision 分享链接 】：支持v2rayng、nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m1}")
+if [[ -f /etc/s-box/vm_ws.txt ]]; then
+res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Vmess-ws 分享链接 】：支持v2rayng、nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m2}")
+fi
+if [[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.log' ]]; then
+res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Vmess-ws(tls)+Argo 分享链接 】：支持v2rayng、nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m3}")
+fi
+if [[ -f /etc/s-box/vm_ws_tls.txt ]]; then
+res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Vmess-ws-tls 分享链接 】：支持v2rayng、nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m4}")
+fi
+res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Hysteria-2 分享链接 】：支持nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m5}")
+res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Tuic-v5 分享链接 】：支持nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m6}")
+res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Sing-box 配置文件 】：支持SFA、SFI、SFW "$'"'"'\n\n'"'"'"${message_text_m7}")
+res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Clash-meta 配置文件 】：支持CFA、CFWV、CFOC "$'"'"'\n\n'"'"'"${message_text_m8}")
+if [ $? == 124 ];then
+echo TG_api请求超时,请检查网络是否重启完成并是否能够访问TG
+fi
+resSuccess=$(echo "$res" | jq -r ".ok")
+if [[ $resSuccess = "true" ]]; then
+echo "TG推送成功";
+else
+echo "TG推送失败，请检查TG机器人Token和ID";
+fi
+' > /etc/s-box/sbtg.sh
+sed -i "s/telegram_token/$telegram_token/g" /etc/s-box/sbtg.sh
+sed -i "s/telegram_id/$telegram_id/g" /etc/s-box/sbtg.sh
+green "设置完成！请确保TG机器人已设置完成，节点配置通知即将发送……"
+tgnotice && sleep 3 && sb
+else
+changeserv
+fi
+}
+tgnotice(){
+if [[ -f /etc/s-box/sbtg.sh ]]; then
+green "请稍等5秒，TG机器人准备推送……"
+sbshare > /dev/null 2>&1
+bash /etc/s-box/sbtg.sh
+else
+red "未启用TG通知功能" && sleep 2 && sb
+fi
+}
 changeserv(){
 sbactive
+echo
 green "Sing-box配置变更选择如下:"
-readp "1：reality证书更换、其他协议自签证书与域名证书相互切换 (调整证书验证或者TLS)\n2：变更全协议uuid (密码)\n3：重置Argo隧道临时域名 (Argo会因VPS意外重启而失效，可重新获取)\n4：切换本地IPV4/IPV6地址四档优先级\n0：返回上层\n请选择：" menu
+readp "1：reality证书更换、其他协议自签证书与域名证书相互切换 (调整证书验证或者TLS)\n2：变更全协议uuid (密码)\n3：重置申请Argo隧道临时域名\n4：切换本地IPV4、IPV6出站优先级\n5：设置Telegram机器人通知功能\n0：返回上层\n请选择【0-5】：" menu
 if [ "$menu" = "1" ];then
 changeym
 elif [ "$menu" = "2" ];then
@@ -1576,6 +1658,8 @@ elif [ "$menu" = "3" ];then
 cfargo
 elif [ "$menu" = "4" ];then
 changeip
+elif [ "$menu" = "5" ];then
+tgsbshow
 else 
 sb
 fi
@@ -1882,14 +1966,17 @@ stclre
 fi
 }
 cronsb(){
+uncronsb
 crontab -l > /tmp/crontab.tmp
 echo "0 1 * * * systemctl restart sing-box" >> /tmp/crontab.tmp
+echo '@reboot /bin/bash -c "/etc/s-box/cloudflared tunnel --url http://localhost:$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json) --edge-ip-version auto --no-autoupdate --protocol http2 > /etc/s-box/argo.log 2>&1"' >> /tmp/crontab.tmp
 crontab /tmp/crontab.tmp
 rm /tmp/crontab.tmp
 }
 uncronsb(){
 crontab -l > /tmp/crontab.tmp
 sed -i '/sing-box/d' /tmp/crontab.tmp
+sed -i '/argo.log/d' /tmp/crontab.tmp
 crontab /tmp/crontab.tmp
 rm /tmp/crontab.tmp
 }
@@ -1952,10 +2039,11 @@ green "Sing-box卸载完成！"
 }
 sblog(){
 red "退出日志 Ctrl+c"
+systemctl status sing-box
 journalctl -u sing-box.service -o cat -f
 }
 sbactive(){
-if [[ -z $(systemctl status sing-box 2>/dev/null | grep -w active) ]]; then
+if [[ ! -f /etc/s-box/sb.json ]]; then
 red "未正常启动Sing-box，请卸载重装或者选择10查看运行日志反馈" && exit
 fi
 }
@@ -1966,11 +2054,15 @@ clash_sb_share(){
 echo
 yellow "1：查看各协议分享链接、二维码"
 yellow "2：查看Clash-Meta、Sing-box客户端SFA/SFI/SFW四合一配置文件"
-yellow "3：查看Hysteria2、Tuic5的v2rayn客户端配置文件"
-readp "请选择：" menu
+yellow "3：查看Hysteria2、Tuic5的V2rayN客户端配置文件"
+yellow "4：Telegram通知所有节点配置信息(1+2)"
+yellow "0：返回上层"
+readp "请选择【0-4】：" menu
 if [ "$menu" = "1" ]; then
 sbshare
 elif  [ "$menu" = "2" ]; then
+green "请稍等……"
+sbshare > /dev/null 2>&1
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 red "🚀【 vless-reality、vmess-ws、Hysteria2、Tuic5 】Clash-Meta四合一配置文件显示如下："
 red "支持Clash-Meta安卓客户端、Clash-Verge电脑客户端、软路由Openclash，支持Gitlab私有订阅链接在线配置更新"
@@ -1990,6 +2082,8 @@ echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo
 elif  [ "$menu" = "3" ]; then
+green "请稍等……"
+sbshare > /dev/null 2>&1
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 red "🚀【 Hysteria-2 】v2rayn配置文件显示如下："
 red "请下载Hysteria2官方客户端核心，支持多端口跳跃、多端口复用"
@@ -2017,8 +2111,10 @@ echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo
 fi
+elif [ "$menu" = "4" ]; then
+tgnotice
 else
-exit
+sb
 fi
 }
 acme(){
@@ -2033,7 +2129,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/teddysun/across/master/bbr.sh)
 showprotocol(){
 allports
 sbymfl
-[[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.txt' && -n $(curl -sL https://$(cat /etc/s-box/argo.txt)/ -I | grep -E -w "HTTP/2 (404|400)") ]] && argoym="运行中" || argoym="关闭中"
+[[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.log' && -n $(curl -sL https://$(cat /etc/s-box/argo.log | grep trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]] && argoym="运行中" || argoym="关闭中"
 tls=$(jq -r '.inbounds[1].tls.enabled' /etc/s-box/sb.json)
 [[ "$tls" = "false" ]] && vm_zs="TLS关闭" || vm_zs="TLS开启"
 hy2_sniname=$(jq -r '.inbounds[2].tls.key_path' /etc/s-box/sb.json)
@@ -2049,6 +2145,10 @@ echo -e "🚀【 Vmess-ws-tls  】${yellow}端口:$vm_port   证书形式:$vm_zs
 fi
 echo -e "🚀【  Hysteria-2   】${yellow}端口:$hy2_port  证书形式:$hy2_zs  转发多端口: $hy2zfport${plain}"
 echo -e "🚀【    Tuic-v5    】${yellow}端口:$tu5_port  证书形式:$tu5_zs  转发多端口: $tu5zfport${plain}"
+if [ "$argoym" = "运行中" ]; then
+echo -e "UUID(密码)：${yellow}$(jq -r '.inbounds[0].users[0].uuid' /etc/s-box/sb.json)${plain}"
+echo -e "Argo临时域名：${yellow}$(cat /etc/s-box/argo.log | grep trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')${plain}"
+fi
 echo
 ww4="warp-wireguard-ipv4分流域名：$wfl4"
 ww6="warp-wireguard-ipv6分流域名：$wfl6"
@@ -2085,14 +2185,14 @@ red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 green " 1. 安装 Sing-box" 
 green " 2. 卸载 Sing-box"
 white "----------------------------------------------------------------------------------"
-green " 3. 变更配置 (双证书、UUID密码、Argo隧道、本地IP优先出站)" 
+green " 3. 变更配置 (双证书、UUID、Argo域名、IP优先级、TG通知)" 
 green " 4. 更改端口、添加多端口跳跃复用" 
 green " 5. 三大通道自定义域名分流" 
 green " 6. 关闭、重启 Sing-box"   
-green " 7. 更新 Sing-box-yg 安装脚本"
+green " 7. 更新 Sing-box-yg 脚本"
 green " 8. 更新、切换 Sing-box 双内核"
 white "----------------------------------------------------------------------------------"
-green " 9. 实时更新查询：分享链接、二维码、Clash-Meta、官方SFA/SFI/SFW客户端配置文件"
+green " 9. 实时查询/TG通知：分享链接、二维码、Clash-Meta、官方SFA/SFI/SFW客户端配置"
 green "10. 查看 Sing-box 运行日志"
 green "11. 一键原版BBR+FQ加速"
 green "12. 管理 Acme 证书申请"
@@ -2197,7 +2297,7 @@ showprotocol
 fi
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo
-readp "请输入数字:" Input
+readp "请输入数字【0-13】:" Input
 case "$Input" in  
  1 ) instsllsingbox;;
  2 ) unins;;
