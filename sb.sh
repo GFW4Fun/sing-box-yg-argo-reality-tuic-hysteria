@@ -29,13 +29,14 @@ release="Ubuntu"
 elif cat /proc/version | grep -q -E -i "centos|red hat|redhat"; then
 release="Centos"
 else 
-red "不支持你当前系统，请选择使用Ubuntu,Debian,Centos系统。" && exit
+red "脚本不支持你当前系统，请选择使用Ubuntu,Debian,Centos系统。" && exit
 fi
 vsid=$(grep -i version_id /etc/os-release | cut -d \" -f2 | cut -d . -f1)
 op=$(cat /etc/redhat-release 2>/dev/null || cat /etc/os-release 2>/dev/null | grep -i pretty_name | cut -d \" -f2)
+if [[ $(echo "$op" | grep -i -E "arch|alpine") ]]; then
+red "脚本不支持你当前 $op 系统，请选择使用Ubuntu,Debian,Centos系统。" && exit
+fi
 version=$(uname -r | cut -d "-" -f1)
-main=$(uname -r | cut -d "." -f1)
-minor=$(uname -r | cut -d "." -f2)
 vi=$(systemd-detect-virt)
 bit=$(uname -m)
 if [[ $bit = "aarch64" ]]; then
@@ -60,35 +61,45 @@ if [ ! -f sbyg_update ]; then
 green "首次安装Sing-box-yg脚本必要的依赖……"
 update(){
 if [ -x "$(command -v apt-get)" ]; then
-apt update
+apt update -y
 elif [ -x "$(command -v yum)" ]; then
-yum update && yum install epel-release -y
+yum update -y && yum install epel-release -y
 elif [ -x "$(command -v dnf)" ]; then
-dnf update
+dnf update -y
 fi
 }
+if [[ $release = Centos && ${vsid} =~ 8 ]]; then
+cd /etc/yum.repos.d/ && mkdir backup && mv *repo backup/ 
+curl -o /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-8.repo
+sed -i -e "s|mirrors.cloud.aliyuncs.com|mirrors.aliyun.com|g " /etc/yum.repos.d/CentOS-*
+sed -i -e "s|releasever|releasever-stream|g" /etc/yum.repos.d/CentOS-*
+yum clean all && yum makecache
+cd
+fi
 update
 packages=("curl" "openssl" "jq" "iptables" "iptables-persistent" "tar" "qrencode" "wget" "cron")
-for package in "${packages[@]}"
-do
+inspackages=("curl" "openssl" "jq" "iptables" "iptables-persistent" "tar" "qrencode" "wget" "cron")
+for i in "${!packages[@]}"; do
+package="${packages[$i]}"
+inspackage="${inspackages[$i]}"
 if ! command -v "$package" &> /dev/null; then
 if [ -x "$(command -v apt-get)" ]; then
-apt-get install -y "$package" 
+apt-get install -y "$inspackage"
 elif [ -x "$(command -v yum)" ]; then
-yum install -y "$package"
+yum install -y "$inspackage"
 elif [ -x "$(command -v dnf)" ]; then
-dnf install -y "$package"
+dnf install -y "$inspackage"
 fi
 fi
 done
 if [ -x "$(command -v yum)" ] || [ -x "$(command -v dnf)" ]; then
-if ! command -v "cronie" &> /dev/null; then
 if [ -x "$(command -v yum)" ]; then
-yum install -y cronie
+yum install -y cronie iptables-services
 elif [ -x "$(command -v dnf)" ]; then
-dnf install -y cronie
+dnf install -y cronie iptables-services
 fi
-fi
+systemctl enable iptables >/dev/null 2>&1
+systemctl start iptables >/dev/null 2>&1
 fi
 update
 touch sbyg_update
@@ -109,8 +120,8 @@ fi
 fi
 fi
 v4v6(){
-v4=$(curl -s4m5 ip.me -k)
-v6=$(curl -s6m5 ip.me -k)
+v4=$(curl -s4m5 icanhazip.com -k)
+v6=$(curl -s6m5 icanhazip.com -k)
 }
 warpcheck(){
 wgcfv6=$(curl -s6m5 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
@@ -118,7 +129,7 @@ wgcfv4=$(curl -s4m5 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cu
 }
 v6(){
 v4orv6(){
-if [ -z $(curl -s4m5 ip.me -k) ]; then
+if [ -z $(curl -s4m5 icanhazip.com -k) ]; then
 echo
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 yellow "检测到 纯IPV6 VPS，添加DNS64"
@@ -183,6 +194,7 @@ mkdir -p /etc/s-box
 sbcore=$(curl -Ls https://data.jsdelivr.com/v1/package/gh/SagerNet/sing-box | grep -Eo '"[0-9.]+",' | sed -n 1p | tr -d '",')
 sbname="sing-box-$sbcore-linux-$cpu"
 wget -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$sbcore/$sbname.tar.gz
+if [[ -f '/etc/s-box/sing-box.tar.gz' ]]; then
 tar xzf /etc/s-box/sing-box.tar.gz -C /etc/s-box
 mv /etc/s-box/$sbname/sing-box /etc/s-box
 rm -rf /etc/s-box/{sing-box.tar.gz,$sbname}
@@ -191,14 +203,17 @@ chown root:root /etc/s-box/sing-box
 chmod +x /etc/s-box/sing-box
 blue "成功安装 Sing-box 内核版本：$(/etc/s-box/sing-box version | awk '/version/{print $NF}')"
 else
-red "安装 Sing-box 内核失败" && exit
+red "安装 Sing-box 内核失败，请再运行安装一次" && exit
+fi
+else
+red "下载 Sing-box 内核失败，请再运行安装一次，并检测VPS的网络是否可以访问Github" && exit
 fi
 }
 inscertificate(){
 ymzs(){
 ym_vl_re=www.yahoo.com
 blue "Vless-reality的SNI域名默认为 www.yahoo.com"
-blue "Vmess-ws开启TLS，且与Hysteria-2、Tuic-v5都将应用已申请的 $ym 证书"
+blue "Vmess-ws将开启TLS，Hysteria-2、Tuic-v5将使用 $(cat /root/ygkkkca/ca.log 2>/dev/null) 证书，并开启SNI证书验证"
 tlsyn=true
 ym_vm_ws=$(cat /root/ygkkkca/ca.log 2>/dev/null)
 certificatec_vmess_ws='/root/ygkkkca/cert.crt'
@@ -211,7 +226,7 @@ certificatep_tuic='/root/ygkkkca/private.key'
 zqzs(){
 ym_vl_re=www.yahoo.com
 blue "Vless-reality的SNI域名默认为 www.yahoo.com"
-blue "Vmess-ws关闭TLS，Hysteria-2、Tuic-v5将应用bing自签证书"
+blue "Vmess-ws将关闭TLS，Hysteria-2、Tuic-v5将使用bing自签证书，并关闭SNI证书验证"
 tlsyn=false
 ym_vm_ws=www.bing.com
 certificatec_vmess_ws='/etc/s-box/cert.pem'
@@ -246,7 +261,7 @@ else
 ymzs
 fi
 else
-green "如有解析好域名，是否申请一个Acme域名证书？（组成双证书模式，与已生成的自签证书可共存、各协议可独立切换）"
+green "如有解析完成的域名，是否申请一个Acme域名证书？（组成双证书模式，与自签证书可共存、各协议可独立切换）"
 yellow "1：否！使用自签的证书 (回车默认)"
 yellow "2：是！使用Acme-yg脚本申请Acme证书 (支持常规80端口模式与Dns API模式)"
 readp "请选择：" menu
@@ -327,10 +342,13 @@ else
 numbers=("8080" "8880" "2052" "2082" "2086" "2095")
 fi
 port_vm_ws=${numbers[$RANDOM % ${#numbers[@]}]}
+echo
+blue "根据Vmess-ws协议是否启用TLS，随机指定支持CDN优选IP的端口：$port_vm_ws"
 else
 vlport && vmport && hy2port && tu5port
 fi
 echo
+blue "各协议端口确认如下"
 blue "Vless-reality端口：$port_vl_re"
 blue "Vmess-ws端口：$port_vm_ws"
 blue "Hysteria-2端口：$port_hy2"
@@ -517,11 +535,11 @@ cat > /etc/s-box/sb.json <<EOF
 ],
 "route":{
 "geoip":{
-"download_url":"https://github.com/soffchen/sing-geoip/releases/latest/download/geoip.db",
+"download_url":"https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db",
 "download_detour":"direct"
 },
 "geosite":{
-"download_url":"https://github.com/soffchen/sing-geosite/releases/latest/download/geosite.db",
+"download_url":"https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db",
 "download_detour":"direct"
 },
 "rules":[
@@ -617,7 +635,7 @@ systemctl restart sing-box
 }
 ipuuid(){
 uuid=$(jq -r '.inbounds[0].users[0].uuid' /etc/s-box/sb.json)
-serip=$(curl -s4m5 ip.me -k || curl -s6m5 ip.me -k)
+serip=$(curl -s4m5 icanhazip.com -k || curl -s6m5 icanhazip.com -k)
 if [[ "$serip" =~ : ]]; then
 sbdnsip='https://[2001:4860:4860::8888]/dns-query'
 server_ip="[$serip]"
@@ -643,12 +661,13 @@ systemctl start warp-go >/dev/null 2>&1
 fi
 }
 result_vl_vm_hy_tu(){
+rm -rf /etc/s-box/vm_ws_argo.txt /etc/s-box/vm_ws.txt /etc/s-box/vm_ws_tls.txt
 wgcfgo
 vl_port=$(jq -r '.inbounds[0].listen_port' /etc/s-box/sb.json)
 vl_name=$(jq -r '.inbounds[0].tls.server_name' /etc/s-box/sb.json)
 public_key=$(cat /etc/s-box/public.key)
 short_id=$(jq -r '.inbounds[0].tls.reality.short_id[0]' /etc/s-box/sb.json)
-argo=$(cat /etc/s-box/argo.log 2>/dev/null | grep trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
+argo=$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
 ws_path=$(jq -r '.inbounds[1].transport.path' /etc/s-box/sb.json)
 vm_name=$(jq -r '.inbounds[1].tls.server_name' /etc/s-box/sb.json)
 vm_port=$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json)
@@ -797,13 +816,11 @@ cat > /etc/s-box/sing_box_client.json <<EOF
             {
                 "tag": "remote",
                 "address": "$sbdnsip",
-                "strategy": "ipv4_only",
                 "detour": "select"
             },
             {
                 "tag": "local",
                 "address": "https://223.5.5.5/dns-query",
-                "strategy": "ipv4_only",
                 "detour": "direct"
             },
             {
@@ -1001,11 +1018,11 @@ cat > /etc/s-box/sing_box_client.json <<EOF
   ],
   "route": {
       "geoip": {
-      "download_url": "https://cdn.jsdelivr.net/gh/soffchen/sing-geoip@release/geoip.db",
+      "download_url": "https://mirror.ghproxy.com/https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db",
       "download_detour": "select"
     },
     "geosite": {
-      "download_url": "https://cdn.jsdelivr.net/gh/soffchen/sing-geosite@release/geosite.db",
+      "download_url": "https://mirror.ghproxy.com/https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db",
       "download_detour": "select"
     },
     "auto_detect_interface": true,
@@ -1201,6 +1218,7 @@ hy2_ports=$(echo $hy2_ports | sed 's/:/-/g')
 a=$hy2_ports
 sed -i "/server:/ s/$/$a/" /etc/s-box/v2rayn_hy2.yaml
 fi
+sed -i 's/server: \(.*\)/server: "\1"/' /etc/s-box/v2rayn_hy2.yaml
 }
 cfargo(){
 tls=$(jq -r '.inbounds[1].tls.enabled' /etc/s-box/sb.json)
@@ -1215,11 +1233,11 @@ fi
 sleep 5
 if [[ -n $(curl -sL https://$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]]; then
 argo=$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
-blue "Argo隧道申请成功且验证有效，域名：$argo" && sleep 2
+blue "Argo隧道申请成功，域名验证有效：$argo" && sleep 2
 break
 fi
 if [ $i -eq 5 ]; then
-yellow "Argo隧道域名验证为不可用，可能过会自动恢复或者再次重置申请" && sleep 2
+yellow "Argo域名验证暂不可用，稍后可能会自动恢复，或者直接申请重置" && sleep 2
 fi
 done
 else
@@ -1238,8 +1256,8 @@ private_key=$(echo "$key_pair" | awk '/PrivateKey/ {print $2}' | tr -d '"')
 public_key=$(echo "$key_pair" | awk '/PublicKey/ {print $2}' | tr -d '"')
 echo "$public_key" > /etc/s-box/public.key
 short_id=$(/etc/s-box/sing-box generate rand --hex 4)
-wget -q -O /root/geosite.db https://github.com/soffchen/sing-geosite/releases/latest/download/geosite.db
-wget -q -O /root/geoip.db https://github.com/soffchen/sing-geoip/releases/latest/download/geoip.db
+wget -q -O /root/geosite.db https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db
+wget -q -O /root/geoip.db https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db
 inssbjsonser && sbservice && sbactive
 if [[ ! $vi =~ lxc|openvz ]]; then
 sysctl -w net.core.rmem_max=2500000 > /dev/null
@@ -1253,7 +1271,7 @@ x86_64) cpu=amd64;;
 esac
 curl -sL -o /etc/s-box/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$cpu
 chmod +x /etc/s-box/cloudflared
-/etc/s-box/cloudflared tunnel --url http://localhost:$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json) --edge-ip-version auto --no-autoupdate --protocol http2 > argo.log 2>&1 &
+/etc/s-box/cloudflared tunnel --url http://localhost:$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json) --edge-ip-version auto --no-autoupdate --protocol http2 > /etc/s-box/argo.log 2>&1 &
 sleep 5
 if [[ -n $(curl -sL https://$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]]; then
 argo=$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
@@ -1273,9 +1291,9 @@ echo
 }
 changeym(){
 [ -f /root/ygkkkca/ca.log ] && ymzs="$yellow切换为域名证书：$(cat /root/ygkkkca/ca.log 2>/dev/null)$plain" || ymzs="$yellow未申请域名证书，无法切换$plain"
-vl_na="正在使用的域名证书：$(jq -r '.inbounds[0].tls.server_name' /etc/s-box/sb.json)。$yellow更换符合reality要求的域名证书$plain"
+vl_na="正在使用的域名证书：$(jq -r '.inbounds[0].tls.server_name' /etc/s-box/sb.json)。$yellow更换符合reality要求的域名证书，不建议使用自有解析的域名$plain"
 tls=$(jq -r '.inbounds[1].tls.enabled' /etc/s-box/sb.json)
-[[ "$tls" = "false" ]] && vm_na="当前已关闭TLS。$ymzs ${yellow}，Argo隧道将关闭，可进入主菜单选项4，将端口更改为https 443系的端口，实现CDN优选IP${plain}" || vm_na="正在使用的域名证书：$(cat /root/ygkkkca/ca.log 2>/dev/null)。$yellow切换为关闭TLS，Argo隧道将可用，可进入主菜单选项4，将端口更改为http 80系端口，主协议实现CDN优选IP$plain"
+[[ "$tls" = "false" ]] && vm_na="当前已关闭TLS。$ymzs ${yellow}切换为开启TLS，Argo隧道将关闭，可进入主菜单选项4，将端口更改为https 443系的端口，主协议可实现CDN优选IP${plain}" || vm_na="正在使用的域名证书：$(cat /root/ygkkkca/ca.log 2>/dev/null)。$yellow切换为关闭TLS，Argo隧道将可用，可进入主菜单选项4，将端口更改为http 80系端口，主协议可实现CDN优选IP$plain"
 hy2_sniname=$(jq -r '.inbounds[2].tls.key_path' /etc/s-box/sb.json)
 [[ "$hy2_sniname" = '/etc/s-box/private.key' ]] && hy2_na="正在使用自签bing证书。$ymzs" || hy2_na="正在使用的域名证书：$(cat /root/ygkkkca/ca.log 2>/dev/null)。$yellow切换为自签bing证书$plain"
 tu5_sniname=$(jq -r '.inbounds[3].tls.key_path' /etc/s-box/sb.json)
@@ -1287,10 +1305,10 @@ green "2：vmess-ws协议，$vm_na"
 green "3：Hysteria2协议，$hy2_na"
 green "4：Tuic5协议，$tu5_na"
 else
-red "仅支持选项1 (vless-reality)。因未申请域名证书，vmess-ws、Hysteria2、Tuic5的证书切换选项暂不予显示"
+red "仅支持选项1 (vless-reality)。因未申请域名证书，vmess-ws、Hysteria-2、Tuic-v5的证书切换选项暂不予显示"
 fi
 green "0：返回上层"
-readp "请选择【0-4】：" menu
+readp "请选择：" menu
 if [ "$menu" = "1" ]; then
 readp "请输入vless-reality域名 (回车使用www.yahoo.com)：" menu
 ym_vl_re=${menu:-www.yahoo.com}
@@ -1300,6 +1318,7 @@ c=$(cat /etc/s-box/vl_reality.txt | cut -d'=' -f5 | cut -d'&' -f1)
 sed -i "23s/$a/$ym_vl_re/" /etc/s-box/sb.json
 sed -i "27s/$b/$ym_vl_re/" /etc/s-box/sb.json
 systemctl restart sing-box
+blue "vless-reality域名已更换为$ym_vl_re"
 result_vl_vm_hy_tu && resvless && sb_client
 elif [ "$menu" = "2" ]; then
 if [ -f /root/ygkkkca/ca.log ]; then
@@ -1387,6 +1406,7 @@ if [[ $b -ge 1000 && $b -le 65535 && $c -ge 1000 && $c -le 65535 && $b -lt $c ]]
 iptables -t nat -A PREROUTING -p udp --dport $rangeport -j DNAT --to-destination :$port
 ip6tables -t nat -A PREROUTING -p udp --dport $rangeport -j DNAT --to-destination :$port
 netfilter-persistent save >/dev/null 2>&1
+service iptables save >/dev/null 2>&1
 blue "已确认转发的端口范围：$rangeport"
 else
 red "输入的端口范围不在有效范围内" && fports
@@ -1402,6 +1422,7 @@ if [[ $onlyport -ge 1000 && $onlyport -le 65535 ]]; then
 iptables -t nat -A PREROUTING -p udp --dport $onlyport -j DNAT --to-destination :$port
 ip6tables -t nat -A PREROUTING -p udp --dport $onlyport -j DNAT --to-destination :$port
 netfilter-persistent save >/dev/null 2>&1
+service iptables save >/dev/null 2>&1
 blue "已确认转发的端口：$onlyport"
 else
 blue "输入的端口不在有效范围内" && fport
@@ -1417,6 +1438,7 @@ iptables -t nat -D PREROUTING -p udp --dport $port -j DNAT --to-destination :$hy
 ip6tables -t nat -D PREROUTING -p udp --dport $port -j DNAT --to-destination :$hy2_port
 done
 netfilter-persistent save >/dev/null 2>&1
+service iptables save >/dev/null 2>&1
 }
 tu5deports(){
 allports
@@ -1427,6 +1449,7 @@ iptables -t nat -D PREROUTING -p udp --dport $port -j DNAT --to-destination :$tu
 ip6tables -t nat -D PREROUTING -p udp --dport $port -j DNAT --to-destination :$tu5_port
 done
 netfilter-persistent save >/dev/null 2>&1
+service iptables save >/dev/null 2>&1
 }
 allports
 green "vless-reality与vmess-ws仅能更改唯一的端口"
@@ -1517,16 +1540,16 @@ green "0：返回上层"
 readp "请选择【0-2】：" menu
 if [ "$menu" = "1" ]; then
 port=$(jq -r '.inbounds[3].listen_port' /etc/s-box/sb.json)
-fports && changeport
+fports && result_vl_vm_hy_tu && sb_client && changeport
 elif [ "$menu" = "2" ]; then
 port=$(jq -r '.inbounds[3].listen_port' /etc/s-box/sb.json)
-fport && changeport
+fport && result_vl_vm_hy_tu && sb_client && changeport
 else
 changeport
 fi
 elif [ "$menu" = "3" ]; then
 if [ -n $tu5_ports ]; then
-tu5deports
+tu5deports && result_vl_vm_hy_tu && sb_client && changeport
 else
 yellow "Tuic5未设置多端口" && changeport
 fi
@@ -1617,7 +1640,7 @@ fi
 res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Hysteria-2 分享链接 】：支持nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m5}")
 res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Tuic-v5 分享链接 】：支持nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m6}")
 res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Sing-box 配置文件 】：支持SFA、SFI、SFW "$'"'"'\n\n'"'"'"${message_text_m7}")
-res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Clash-meta 配置文件 】：支持CFA、CFWV、CFOC "$'"'"'\n\n'"'"'"${message_text_m8}")
+res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Clash-meta 配置文件 】：支持CMFA、CMFW-V、CMFOC "$'"'"'\n\n'"'"'"${message_text_m8}")
 if [ $? == 124 ];then
 echo TG_api请求超时,请检查网络是否重启完成并是否能够访问TG
 fi
@@ -1630,7 +1653,7 @@ fi
 ' > /etc/s-box/sbtg.sh
 sed -i "s/telegram_token/$telegram_token/g" /etc/s-box/sbtg.sh
 sed -i "s/telegram_id/$telegram_id/g" /etc/s-box/sbtg.sh
-green "设置完成！请确保TG机器人已设置完成，节点配置通知即将发送……"
+green "设置完成！请确保TG机器人已处于激活状态！"
 tgnotice && sleep 3 && sb
 else
 changeserv
@@ -1642,14 +1665,14 @@ green "请稍等5秒，TG机器人准备推送……"
 sbshare > /dev/null 2>&1
 bash /etc/s-box/sbtg.sh
 else
-red "未启用TG通知功能" && sleep 2 && sb
+red "未设置TG通知功能，请前往主菜单选项3进行设置" && sleep 2 && sb
 fi
 }
 changeserv(){
 sbactive
 echo
 green "Sing-box配置变更选择如下:"
-readp "1：reality证书更换、其他协议自签证书与域名证书相互切换 (调整证书验证或者TLS)\n2：变更全协议uuid (密码)\n3：重置申请Argo隧道临时域名\n4：切换本地IPV4、IPV6出站优先级\n5：设置Telegram机器人通知功能\n0：返回上层\n请选择【0-5】：" menu
+readp "1：reality证书更换+其他协议自签证书与域名证书切换 (开启或关闭sni证书验证、TLS)\n2：变更全协议uuid (密码)\n3：重置申请Argo隧道临时域名\n4：切换本地IPV4、IPV6出站优先级\n5：设置Telegram机器人通知功能\n0：返回上层\n请选择【0-5】：" menu
 if [ "$menu" = "1" ];then
 changeym
 elif [ "$menu" = "2" ];then
@@ -1665,8 +1688,8 @@ sb
 fi
 }
 sbymfl(){
-[[ $(systemctl is-active warp-svc) = active ]] && warp_s4_ip="当前IP：$(curl -4sx socks5h://localhost:40000 ip.me -k)" || warp_s4_ip='无warp-s5的IPV4，黑名单模式'
-[[ $(systemctl is-active warp-svc) = active ]] && warp_s6_ip="当前IP：$(curl -6sx socks5h://localhost:40000 ip.me -k)" || warp_s6_ip='无warp-s5的IPV6，黑名单模式'
+[[ $(systemctl is-active warp-svc) = active ]] && warp_s4_ip="当前IP：$(curl -4sx socks5h://localhost:40000 icanhazip.com -k)" || warp_s4_ip='无warp-s5的IPV4，黑名单模式'
+[[ $(systemctl is-active warp-svc) = active ]] && warp_s6_ip="当前IP：$(curl -6sx socks5h://localhost:40000 icanhazip.com -k)" || warp_s6_ip='无warp-s5的IPV6，黑名单模式'
 v4v6
 if [[ -z $v4 ]]; then
 vps_ipv4='无本地IPV4，黑名单模式'      
@@ -1764,8 +1787,11 @@ green "对所有协议进行统一的域名分流"
 green "warp-wireguard默认开启，IPV4与IPV6可用 (选项1与2)"
 green "warp-socks5需要安装warp官方客户端 (选项3与4)"
 green "VPS本地出站分流，如安装warp方案一，本地IP会被warp接管 (选项5与6)"
-yellow "提示：1、同域名切勿重复分流。2、如该分流通道无网络，则为黑名单模式"
 yellow "支持完整域名方式(例：www.google.com)与geosite方式(例：netflix、disney、openai)"
+yellow "注意："
+yellow "1：完整域名方式只能填完整域名，geosite方式只能填geosite"
+yellow "2：同一个完整域名或者geosite切勿重复分流"
+yellow "3：如该分流通道无网络，所填分流为黑名单模式 (屏蔽该网站)"
 changef
 }
 changef(){
@@ -2001,9 +2027,8 @@ upsbcroe(){
 sbactive
 lapre
 [[ $inscore =~ ^[0-9.]+$ ]] && lat="【已安装v$inscore】" || pre="【已安装v$inscore】"
-green "选择要升级/切换的Sing-box核心，"
-green "1：Sing-box最新正式版 v$latcore  ${bblue}${lat}${plain}"
-green "2：Sing-box最新测试版 v$precore  ${bblue}${pre}${plain}"
+green "1：升级/切换Sing-box最新正式版 v$latcore  ${bblue}${lat}${plain}"
+green "2：升级/切换Sing-box最新测试版 v$precore  ${bblue}${pre}${plain}"
 readp "请选择：" menu
 if [ "$menu" = "1" ]; then
 upcore=$(curl -Ls https://data.jsdelivr.com/v1/package/gh/SagerNet/sing-box | grep -Eo '"[0-9.]+",' | sed -n 1p | tr -d '",')
@@ -2014,6 +2039,7 @@ sb
 fi
 sbname="sing-box-$upcore-linux-$cpu"
 wget -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$upcore/$sbname.tar.gz
+if [[ -f '/etc/s-box/sing-box.tar.gz' ]]; then
 tar xzf /etc/s-box/sing-box.tar.gz -C /etc/s-box
 mv /etc/s-box/$sbname/sing-box /etc/s-box
 rm -rf /etc/s-box/{sing-box.tar.gz,$sbname}
@@ -2021,9 +2047,12 @@ if [[ -f '/etc/s-box/sing-box' ]]; then
 chown root:root /etc/s-box/sing-box
 chmod +x /etc/s-box/sing-box
 systemctl restart sing-box
-blue "成功安装 Sing-box 内核版本：$(/etc/s-box/sing-box version | awk '/version/{print $NF}')" && sleep 3 && sb 
+blue "成功升级/切换 Sing-box 内核版本：$(/etc/s-box/sing-box version | awk '/version/{print $NF}')" && sleep 3 && sb
 else
-red "安装 Sing-box 内核失败" && exit
+red "升级/切换 Sing-box 内核失败，请再运行安装一次" && upsbcroe
+fi
+else
+red "下载 Sing-box 内核失败，请再运行安装一次，并检测VPS的网络是否可以访问Github" && exit
 fi
 }
 unins(){
@@ -2035,6 +2064,7 @@ kill -15 $(pgrep cloudflared) >/dev/null 2>&1
 uncronsb
 iptables -t nat -F PREROUTING >/dev/null 2>&1
 netfilter-persistent save >/dev/null 2>&1
+service iptables save >/dev/null 2>&1
 green "Sing-box卸载完成！"
 }
 sblog(){
@@ -2052,10 +2082,10 @@ result_vl_vm_hy_tu && resvless && resvmess && reshy2 && restu5 && sb_client
 }
 clash_sb_share(){
 echo
-yellow "1：查看各协议分享链接、二维码"
-yellow "2：查看Clash-Meta、Sing-box客户端SFA/SFI/SFW四合一配置文件"
-yellow "3：查看Hysteria2、Tuic5的V2rayN客户端配置文件"
-yellow "4：Telegram通知所有节点配置信息(1+2)"
+yellow "1：查看最新各协议分享链接、二维码"
+yellow "2：查看最新Clash-Meta、Sing-box客户端SFA/SFI/SFW统一配置文件"
+yellow "3：查看最新Hysteria2、Tuic5的V2rayN客户端配置文件"
+yellow "4：推送最新节点配置信息(1+2)到Telegram"
 yellow "0：返回上层"
 readp "请选择【0-4】：" menu
 if [ "$menu" = "1" ]; then
@@ -2064,7 +2094,7 @@ elif  [ "$menu" = "2" ]; then
 green "请稍等……"
 sbshare > /dev/null 2>&1
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-red "🚀【 vless-reality、vmess-ws、Hysteria2、Tuic5 】Clash-Meta四合一配置文件显示如下："
+red "🚀【 vless-reality、vmess-ws、Hysteria2、Tuic5 】Clash-Meta配置文件显示如下："
 red "支持Clash-Meta安卓客户端、Clash-Verge电脑客户端、软路由Openclash，支持Gitlab私有订阅链接在线配置更新"
 red "文件目录 /etc/s-box/clash_meta_client.yaml ，复制自建以yaml文件格式为准" && sleep 2
 echo
@@ -2073,7 +2103,7 @@ echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-red "🚀【 vless-reality、vmess-ws、Hysteria2、Tuic5 】SFA/SFI/SFW四合一配置文件显示如下："
+red "🚀【 vless-reality、vmess-ws、Hysteria2、Tuic5 】SFA/SFI/SFW配置文件显示如下："
 red "安卓SFA、苹果SFI（支持Gitlab私有订阅链接在线配置更新），win电脑SFW的Sing-box官方客户端自行下载，"
 red "文件目录 /etc/s-box/sing_box_client.json ，复制自建以json文件格式为准" && sleep 2
 echo
@@ -2124,14 +2154,29 @@ cfwarp(){
 bash <(curl -Ls https://gitlab.com/rwkgyg/CFwarp/raw/main/CFwarp.sh)
 }
 bbr(){
+if [[ $vi =~ lxc|openvz ]]; then
+yellow "当前VPS的架构为 $vi，不支持开启原版BBR加速" && sleep 2 && exit 
+else
+green "点击任意键，即可开启BBR加速，ctrl+c退出"
 bash <(curl -Ls https://raw.githubusercontent.com/teddysun/across/master/bbr.sh)
+fi
 }
 showprotocol(){
 allports
 sbymfl
-[[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.log' && -n $(curl -sL https://$(cat /etc/s-box/argo.log | grep trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]] && argoym="运行中" || argoym="关闭中"
 tls=$(jq -r '.inbounds[1].tls.enabled' /etc/s-box/sb.json)
-[[ "$tls" = "false" ]] && vm_zs="TLS关闭" || vm_zs="TLS开启"
+if [[ "$tls" = "false" ]]; then
+if [[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.log' && -n $(curl -sL https://$(cat /etc/s-box/argo.log | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]]; then
+vm_zs="TLS关闭"
+argoym="已开启"
+else
+vm_zs="TLS关闭"
+argoym="未开启，可重置开启"
+fi
+else
+vm_zs="TLS开启"
+argoym="不支持开启"
+fi
 hy2_sniname=$(jq -r '.inbounds[2].tls.key_path' /etc/s-box/sb.json)
 [[ "$hy2_sniname" = '/etc/s-box/private.key' ]] && hy2_zs="自签证书" || hy2_zs="域名证书"
 tu5_sniname=$(jq -r '.inbounds[3].tls.key_path' /etc/s-box/sb.json)
@@ -2145,9 +2190,9 @@ echo -e "🚀【 Vmess-ws-tls  】${yellow}端口:$vm_port   证书形式:$vm_zs
 fi
 echo -e "🚀【  Hysteria-2   】${yellow}端口:$hy2_port  证书形式:$hy2_zs  转发多端口: $hy2zfport${plain}"
 echo -e "🚀【    Tuic-v5    】${yellow}端口:$tu5_port  证书形式:$tu5_zs  转发多端口: $tu5zfport${plain}"
-if [ "$argoym" = "运行中" ]; then
+if [ "$argoym" = "已开启" ]; then
 echo -e "UUID(密码)：${yellow}$(jq -r '.inbounds[0].users[0].uuid' /etc/s-box/sb.json)${plain}"
-echo -e "Argo临时域名：${yellow}$(cat /etc/s-box/argo.log | grep trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')${plain}"
+echo -e "Argo临时域名：${yellow}$(cat /etc/s-box/argo.log | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')${plain}"
 fi
 echo
 ww4="warp-wireguard-ipv4分流域名：$wfl4"
@@ -2203,12 +2248,11 @@ insV=$(cat /etc/s-box/v 2>/dev/null)
 latestV=$(curl -sL https://gitlab.com/rwkgyg/sing-box-yg/-/raw/main/version/version | awk -F "更新内容" '{print $1}' | head -n 1)
 if [ -f /etc/s-box/v ]; then
 if [ "$insV" = "$latestV" ]; then
-echo -e "当前 Sing-box-yg 最新脚本版本号：${bblue}${insV}${plain} ，已安装"
+echo -e "当前 Sing-box-yg 脚本最新版：${bblue}${insV}${plain} (已安装)"
 else
 echo -e "当前 Sing-box-yg 脚本版本号：${bblue}${insV}${plain}"
-echo -e "检测到最新 Sing-box-yg 脚本版本号：${yellow}${latestV}${plain}"
+echo -e "检测到最新 Sing-box-yg 脚本版本号：${yellow}${latestV}${plain} (可选择7进行更新)"
 echo -e "${yellow}$(curl -sL https://gitlab.com/rwkgyg/sing-box-yg/-/raw/main/version/version)${plain}"
-echo -e "可选择7进行更新"
 fi
 else
 echo -e "当前 Sing-box-yg 脚本版本号：${bblue}${latestV}${plain}"
@@ -2219,28 +2263,28 @@ if [ -f '/etc/s-box/sb.json' ]; then
 if [[ $inscore =~ ^[0-9.]+$ ]]; then
 if [ "${inscore}" = "${latcore}" ]; then
 echo
-echo -e "当前 Sing-box 最新正式版内核：${bblue}${inscore}${plain} ，已安装"
+echo -e "当前 Sing-box 最新正式版内核：${bblue}${inscore}${plain} (已安装)"
 echo
-echo -e "当前 Sing-box 最新测试版内核：${bblue}${precore}${plain}"
+echo -e "当前 Sing-box 最新测试版内核：${bblue}${precore}${plain} (可切换)"
 else
 echo
 echo -e "当前 Sing-box 已安装正式版内核：${bblue}${inscore}${plain}"
-echo -e "检测到最新 Sing-box 正式版内核：${yellow}${latcore}${plain} ，可选择8进行更新"
+echo -e "检测到最新 Sing-box 正式版内核：${yellow}${latcore}${plain} (可选择8进行更新)"
 echo
-echo -e "当前 Sing-box 最新测试版内核：${bblue}${precore}${plain}"
+echo -e "当前 Sing-box 最新测试版内核：${bblue}${precore}${plain} (可切换)"
 fi
 else
 if [ "${inscore}" = "${precore}" ]; then
 echo
-echo -e "当前 Sing-box 最新测试版内核：${bblue}${inscore}${plain} ，已安装"
+echo -e "当前 Sing-box 最新测试版内核：${bblue}${inscore}${plain} (已安装)"
 echo
-echo -e "当前 Sing-box 最新正式版内核：${bblue}${latcore}${plain}"
+echo -e "当前 Sing-box 最新正式版内核：${bblue}${latcore}${plain} (可切换)"
 else
 echo
 echo -e "当前 Sing-box 已安装测试版内核：${bblue}${inscore}${plain}"
-echo -e "检测到最新 Sing-box 测试版内核：${yellow}${precore}${plain} ，可选择8进行更新"
+echo -e "检测到最新 Sing-box 测试版内核：${yellow}${precore}${plain} (可选择8进行更新)"
 echo
-echo -e "当前 Sing-box 最新正式版内核：${bblue}${latcore}${plain}"
+echo -e "当前 Sing-box 最新正式版内核：${bblue}${latcore}${plain} (可切换)"
 fi
 fi
 else
@@ -2287,7 +2331,7 @@ fi
 if [[ -n $(systemctl status sing-box 2>/dev/null | grep -w active) && -f '/etc/s-box/sb.json' ]]; then
 echo -e "Sing-box状态：$green运行中$plain"
 elif [[ -z $(systemctl status sing-box 2>/dev/null | grep -w active) && -f '/etc/s-box/sb.json' ]]; then
-echo -e "Sing-box状态：$yellow未启动，可尝试选择6重启，依旧如此选择10查看日志并反馈，建议卸载重装Sing-box$plain"
+echo -e "Sing-box状态：$yellow未启动，可选择6重启，依旧如此选择10查看日志并反馈，建议卸载重装Sing-box$plain"
 else
 echo -e "Sing-box状态：$red未安装$plain"
 fi
