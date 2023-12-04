@@ -139,6 +139,7 @@ ipv=prefer_ipv6
 else
 endip=162.159.193.10
 ipv=prefer_ipv4
+echo '4' > /etc/s-box/i
 fi
 }
 warpcheck
@@ -188,9 +189,8 @@ fi
 }
 inssb(){
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-green "一、开始安装Sing-box正式版内核……"
+green "一、开始下载并安装Sing-box正式版内核……请稍等"
 echo
-mkdir -p /etc/s-box
 sbcore=$(curl -Ls https://data.jsdelivr.com/v1/package/gh/SagerNet/sing-box | grep -Eo '"[0-9.]+",' | sed -n 1p | tr -d '",')
 sbname="sing-box-$sbcore-linux-$cpu"
 wget -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$sbcore/$sbname.tar.gz
@@ -203,7 +203,7 @@ chown root:root /etc/s-box/sing-box
 chmod +x /etc/s-box/sing-box
 blue "成功安装 Sing-box 内核版本：$(/etc/s-box/sing-box version | awk '/version/{print $NF}')"
 else
-red "安装 Sing-box 内核失败，请再运行安装一次" && exit
+red "下载 Sing-box 内核不完整，安装失败，请再运行安装一次" && exit
 fi
 else
 red "下载 Sing-box 内核失败，请再运行安装一次，并检测VPS的网络是否可以访问Github" && exit
@@ -356,7 +356,8 @@ blue "Tuic-v5端口：$port_tu"
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 green "四、自动生成各个协议统一的uuid (密码)"
 uuid=$(/etc/s-box/sing-box generate uuid)
-blue "已确认uuid：${uuid}"
+blue "已确认uuid (密码)：${uuid}"
+blue "已确认Vmess的path路径：${uuid}-vm"
 }
 inssbjsonser(){
 cat > /etc/s-box/sb.json <<EOF
@@ -535,11 +536,11 @@ cat > /etc/s-box/sb.json <<EOF
 ],
 "route":{
 "geoip":{
-"download_url":"https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db",
+"download_url":"https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.db",
 "download_detour":"direct"
 },
 "geosite":{
-"download_url":"https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db",
+"download_url":"https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.db",
 "download_detour":"direct"
 },
 "rules":[
@@ -736,21 +737,21 @@ echo
 }
 resvmess(){
 if [[ "$tls" = "false" ]]; then
-if [[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.log' ]]; then
+if [[ -n $(ps -ef | grep cloudflared) && -s '/etc/s-box/argo.log' ]]; then
 echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 red "🚀【 vmess-ws(tls)+Argo 】节点信息如下：" && sleep 2
 echo
 echo "分享链接【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
-echo -e "${yellow}vmess://$(echo '{"add":"www.wto.org","aid":"0","host":"'$argo'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"443","ps":"ygkkk-vm-argo","tls":"tls","sni":"'$argo'","type":"none","v":"2"}' | base64 -w 0)${plain}"
+echo -e "${yellow}vmess://$(echo '{"add":"www.visa.com","aid":"0","host":"'$argo'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"443","ps":"ygkkk-vm-argo","tls":"tls","sni":"'$argo'","type":"none","v":"2"}' | base64 -w 0)${plain}"
 echo
 echo "二维码【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
-echo 'vmess://'$(echo '{"add":"www.wto.org","aid":"0","host":"'$argo'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"443","ps":"ygkkk-vm-argo","tls":"tls","sni":"'$argo'","type":"none","v":"2"}' | base64 -w 0) > /etc/s-box/vm_ws_argo.txt
+echo 'vmess://'$(echo '{"add":"www.visa.com","aid":"0","host":"'$argo'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"443","ps":"ygkkk-vm-argo","tls":"tls","sni":"'$argo'","type":"none","v":"2"}' | base64 -w 0) > /etc/s-box/vm_ws_argo.txt
 qrencode -o - -t ANSIUTF8 "$(cat /etc/s-box/vm_ws_argo.txt)"
 fi
 echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-red "🚀【 vmess-ws 】节点信息如下：" && sleep 2
+red "🚀【 vmess-ws 】节点信息如下 (建议设置为CDN优先节点)：" && sleep 2
 echo
 echo "分享链接【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
 echo -e "${yellow}vmess://$(echo '{"add":"'$server_ip'","aid":"0","host":"'$vm_name'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"'$vm_port'","ps":"ygkkk-vm-ws","tls":"","type":"none","v":"2"}' | base64 -w 0)${plain}"
@@ -815,12 +816,12 @@ cat > /etc/s-box/sing_box_client.json <<EOF
         "servers": [
             {
                 "tag": "remote",
-                "address": "$sbdnsip",
+                "address": "$sbdnsip",             
                 "detour": "select"
             },
             {
                 "tag": "local",
-                "address": "https://223.5.5.5/dns-query",
+                "address": "h3://223.5.5.5/dns-query",
                 "detour": "direct"
             },
             {
@@ -829,19 +830,14 @@ cat > /etc/s-box/sing_box_client.json <<EOF
             },
             {
                 "tag": "dns_fakeip",
-                "strategy": "ipv4_only",
                 "address": "fakeip"
             }
         ],
         "rules": [
             {
                 "outbound": "any",
-                "server": "local"
-            },
-            {
-                "disable_cache": true,
-                "geosite": "category-ads-all",
-                "server": "block"
+                "server": "local",
+                "disable_cache": true
             },
             {
                 "clash_mode": "Global",
@@ -855,12 +851,17 @@ cat > /etc/s-box/sing_box_client.json <<EOF
                 "geosite": "cn",
                 "server": "local"
             },
+            {
+                "geosite": "geolocation-!cn",
+                "server": "remote"
+            },
              {
-               "query_type": [
-                "A",
-                "AAAA"
-               ],
-              "server": "dns_fakeip"
+                "geosite": "geolocation-!cn",             
+                "query_type": [
+                    "A",
+                    "AAAA"
+                ],
+                "server": "dns_fakeip"
             }
           ],
            "fakeip": {
@@ -868,7 +869,8 @@ cat > /etc/s-box/sing_box_client.json <<EOF
            "inet4_range": "198.18.0.0/15",
            "inet6_range": "fc00::/18"
          },
-          "independent_cache": true
+          "independent_cache": true,
+          "final": "remote"
         },
       "inbounds": [
     {
@@ -877,6 +879,7 @@ cat > /etc/s-box/sing_box_client.json <<EOF
       "inet6_address": "fdfe:dcba:9876::1/126",
       "auto_route": true,
       "strict_route": true,
+      "stack": "mixed",
       "sniff": true
     }
   ],
@@ -1018,19 +1021,16 @@ cat > /etc/s-box/sing_box_client.json <<EOF
   ],
   "route": {
       "geoip": {
-      "download_url": "https://mirror.ghproxy.com/https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db",
+      "download_url": "https://mirror.ghproxy.com/https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.db",
       "download_detour": "select"
     },
     "geosite": {
-      "download_url": "https://mirror.ghproxy.com/https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db",
+      "download_url": "https://mirror.ghproxy.com/https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.db",
       "download_detour": "select"
     },
     "auto_detect_interface": true,
+    "final": "select",
     "rules": [
-      {
-        "geosite": "category-ads-all",
-        "outbound": "block"
-      },
       {
         "outbound": "dns-out",
         "protocol": "dns"
@@ -1219,6 +1219,9 @@ a=$hy2_ports
 sed -i "/server:/ s/$/$a/" /etc/s-box/v2rayn_hy2.yaml
 fi
 sed -i 's/server: \(.*\)/server: "\1"/' /etc/s-box/v2rayn_hy2.yaml
+if [[ -f /etc/s-box/i ]]; then
+sed -i 's/"inet6_address":/\/\/&/' /etc/s-box/sing_box_client.json
+fi
 }
 cfargo(){
 tls=$(jq -r '.inbounds[1].tls.enabled' /etc/s-box/sb.json)
@@ -1226,12 +1229,13 @@ if [[ "$tls" = "false" ]]; then
 i=0
 while [ $i -le 4 ]; do let i++
 yellow "第$i次刷新验证Cloudflared Argo隧道域名有效性，请稍等……"
-if [[ -n $(ps -e | grep cloudflared) ]]; then
-kill -15 $(pgrep cloudflared) >/dev/null 2>&1
+if [[ -n $(ps -ef | grep cloudflared) ]]; then
+kill -15 $(cat /etc/s-box/sbargopid.log) >/dev/null 2>&1
 fi
 /etc/s-box/cloudflared tunnel --url http://localhost:$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json) --edge-ip-version auto --no-autoupdate --protocol http2 > /etc/s-box/argo.log 2>&1 &
+echo "$!" > /etc/s-box/sbargopid.log
 sleep 5
-if [[ -n $(curl -sL https://$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]]; then
+if [[ -n $(curl -sL https://$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | awk 'NR==1 && /404|400/') ]]; then
 argo=$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
 blue "Argo隧道申请成功，域名验证有效：$argo" && sleep 2
 break
@@ -1248,6 +1252,7 @@ instsllsingbox(){
 if [[ -f '/etc/systemd/system/sing-box.service' ]]; then
 red "已安装Sing-box服务，无法再次安装" && exit
 fi
+mkdir -p /etc/s-box
 v6 ; openyn ; inssb ; inscertificate ; insport
 echo
 blue "Vless-reality相关key与id将自动生成……"
@@ -1256,8 +1261,8 @@ private_key=$(echo "$key_pair" | awk '/PrivateKey/ {print $2}' | tr -d '"')
 public_key=$(echo "$key_pair" | awk '/PublicKey/ {print $2}' | tr -d '"')
 echo "$public_key" > /etc/s-box/public.key
 short_id=$(/etc/s-box/sing-box generate rand --hex 4)
-wget -q -O /root/geosite.db https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db
-wget -q -O /root/geoip.db https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db
+wget -q -O /root/geosite.db https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.db
+wget -q -O /root/geoip.db https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.db
 inssbjsonser && sbservice && sbactive
 if [[ ! $vi =~ lxc|openvz ]]; then
 sysctl -w net.core.rmem_max=2500000 > /dev/null
@@ -1272,8 +1277,9 @@ esac
 curl -sL -o /etc/s-box/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$cpu
 chmod +x /etc/s-box/cloudflared
 /etc/s-box/cloudflared tunnel --url http://localhost:$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json) --edge-ip-version auto --no-autoupdate --protocol http2 > /etc/s-box/argo.log 2>&1 &
+echo "$!" > /etc/s-box/sbargopid.log
 sleep 5
-if [[ -n $(curl -sL https://$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]]; then
+if [[ -n $(curl -sL https://$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | awk 'NR==1 && /404|400/') ]]; then
 argo=$(cat /etc/s-box/argo.log 2>/dev/null | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')
 blue "Argo隧道申请成功且验证有效，域名：$argo" && sleep 2
 else
@@ -1562,7 +1568,7 @@ fi
 }
 changeuuid(){
 olduuid=$(jq -r '.inbounds[0].users[0].uuid' /etc/s-box/sb.json)
-green "当前uuid与相关密码：$olduuid"
+green "当前uuid (密码)：$olduuid"
 echo
 readp "输入自定义uuid，必须是uuid格式，不懂就回车(重置并随机生成uuid)：" menu
 if [ -z "$menu" ]; then
@@ -1570,7 +1576,8 @@ uuid=$(/etc/s-box/sing-box generate uuid)
 else
 uuid=$menu
 fi
-blue "已确认uuid：${uuid}" && sleep 2
+blue "已确认uuid (密码)：${uuid}" 
+blue "已确认Vmess的path路径：${uuid}-vm" && sleep 2
 sed -i "s/$olduuid/$uuid/g" /etc/s-box/sb.json
 systemctl restart sing-box
 sbshare
@@ -1631,7 +1638,7 @@ res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${M
 if [[ -f /etc/s-box/vm_ws.txt ]]; then
 res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Vmess-ws 分享链接 】：支持v2rayng、nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m2}")
 fi
-if [[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.log' ]]; then
+if [[ -n $(ps -ef | grep cloudflared) && -s '/etc/s-box/argo.log' ]]; then
 res=$(timeout 20s curl -s -X POST $URL -d chat_id=telegram_id  -d parse_mode=${MODE} --data-urlencode "text=🚀【 Vmess-ws(tls)+Argo 分享链接 】：支持v2rayng、nekobox、小火箭shadowrocket "$'"'"'\n\n'"'"'"${message_text_m3}")
 fi
 if [[ -f /etc/s-box/vm_ws_tls.txt ]]; then
@@ -1995,14 +2002,14 @@ cronsb(){
 uncronsb
 crontab -l > /tmp/crontab.tmp
 echo "0 1 * * * systemctl restart sing-box" >> /tmp/crontab.tmp
-echo '@reboot /bin/bash -c "/etc/s-box/cloudflared tunnel --url http://localhost:$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json) --edge-ip-version auto --no-autoupdate --protocol http2 > /etc/s-box/argo.log 2>&1"' >> /tmp/crontab.tmp
+echo '@reboot /bin/bash -c "/etc/s-box/cloudflared tunnel --url http://localhost:$(jq -r '.inbounds[1].listen_port' /etc/s-box/sb.json) --edge-ip-version auto --no-autoupdate --protocol http2 > /etc/s-box/argo.log 2>&1 & pid=\$! && echo \$pid > /etc/s-box/sbargopid.log"' >> /tmp/crontab.tmp
 crontab /tmp/crontab.tmp
 rm /tmp/crontab.tmp
 }
 uncronsb(){
 crontab -l > /tmp/crontab.tmp
 sed -i '/sing-box/d' /tmp/crontab.tmp
-sed -i '/argo.log/d' /tmp/crontab.tmp
+sed -i '/sb.json/d' /tmp/crontab.tmp
 crontab /tmp/crontab.tmp
 rm /tmp/crontab.tmp
 }
@@ -2037,6 +2044,7 @@ upcore=$(curl -Ls https://data.jsdelivr.com/v1/package/gh/SagerNet/sing-box | se
 else
 sb
 fi
+green "开始下载并更新Sing-box内核……请稍等"
 sbname="sing-box-$upcore-linux-$cpu"
 wget -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$upcore/$sbname.tar.gz
 if [[ -f '/etc/s-box/sing-box.tar.gz' ]]; then
@@ -2049,7 +2057,7 @@ chmod +x /etc/s-box/sing-box
 systemctl restart sing-box
 blue "成功升级/切换 Sing-box 内核版本：$(/etc/s-box/sing-box version | awk '/version/{print $NF}')" && sleep 3 && sb
 else
-red "升级/切换 Sing-box 内核失败，请再运行安装一次" && upsbcroe
+red "下载 Sing-box 内核不完整，安装失败，请再运行安装一次" && upsbcroe
 fi
 else
 red "下载 Sing-box 内核失败，请再运行安装一次，并检测VPS的网络是否可以访问Github" && exit
@@ -2058,9 +2066,9 @@ fi
 unins(){
 systemctl stop sing-box >/dev/null 2>&1
 systemctl disable sing-box >/dev/null 2>&1
+kill -15 $(cat /etc/s-box/sbargopid.log) >/dev/null 2>&1
 rm -f /etc/systemd/system/sing-box.service
 rm -rf /etc/s-box sbyg_update /usr/bin/sb /root/geosite.db /root/geoip.db
-kill -15 $(pgrep cloudflared) >/dev/null 2>&1
 uncronsb
 iptables -t nat -F PREROUTING >/dev/null 2>&1
 netfilter-persistent save >/dev/null 2>&1
@@ -2104,7 +2112,7 @@ white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 red "🚀【 vless-reality、vmess-ws、Hysteria2、Tuic5 】SFA/SFI/SFW配置文件显示如下："
-red "安卓SFA、苹果SFI（支持Gitlab私有订阅链接在线配置更新），win电脑SFW的Sing-box官方客户端自行下载，"
+red "安卓SFA、苹果SFI（支持Gitlab私有订阅链接在线配置更新），win电脑官方文件包SFW请到甬哥Github项目自行下载，"
 red "文件目录 /etc/s-box/sing_box_client.json ，复制自建以json文件格式为准" && sleep 2
 echo
 cat /etc/s-box/sing_box_client.json
@@ -2166,7 +2174,7 @@ allports
 sbymfl
 tls=$(jq -r '.inbounds[1].tls.enabled' /etc/s-box/sb.json)
 if [[ "$tls" = "false" ]]; then
-if [[ -n $(ps -e | grep cloudflared) && -s '/etc/s-box/argo.log' && -n $(curl -sL https://$(cat /etc/s-box/argo.log | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | grep -E -w "HTTP/2 (404|400)") ]]; then
+if [[ -n $(ps -ef | grep cloudflared) && -s '/etc/s-box/argo.log' && -n $(curl -sL https://$(cat /etc/s-box/argo.log | grep -a trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}')/ -I | awk 'NR==1 && /404|400/') ]]; then
 vm_zs="TLS关闭"
 argoym="已开启"
 else
@@ -2240,8 +2248,8 @@ white "-------------------------------------------------------------------------
 green " 9. 实时查询/TG通知：分享链接、二维码、Clash-Meta、官方SFA/SFI/SFW客户端配置"
 green "10. 查看 Sing-box 运行日志"
 green "11. 一键原版BBR+FQ加速"
-green "12. 管理 Acme 证书申请"
-green "13. 管理 Warp"
+green "12. 管理 Acme 申请域名证书"
+green "13. 管理 Warp 查看Netflix、ChatGPT解锁情况"
 green " 0. 退出脚本"
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 insV=$(cat /etc/s-box/v 2>/dev/null)
