@@ -37,7 +37,7 @@ if [[ $(echo "$op" | grep -i -E "arch|alpine") ]]; then
 red "脚本不支持你当前 $op 系统，请选择使用Ubuntu,Debian,Centos系统。" && exit
 fi
 version=$(uname -r | cut -d "-" -f1)
-vi=$(systemd-detect-virt)
+vi=$(systemd-detect-virt 2>/dev/null)
 bit=$(uname -m)
 if [[ $bit = "aarch64" ]]; then
 cpu="arm64"
@@ -100,6 +100,9 @@ dnf install -y cronie iptables-services
 fi
 systemctl enable iptables >/dev/null 2>&1
 systemctl start iptables >/dev/null 2>&1
+fi
+if [[ -z $vi ]]; then
+apt install iputils-ping iproute2 systemctl -y
 fi
 update
 touch sbyg_update
@@ -193,7 +196,7 @@ green "一、开始下载并安装Sing-box正式版内核……请稍等"
 echo
 sbcore=$(curl -Ls https://data.jsdelivr.com/v1/package/gh/SagerNet/sing-box | grep -Eo '"[0-9.]+",' | sed -n 1p | tr -d '",')
 sbname="sing-box-$sbcore-linux-$cpu"
-wget -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$sbcore/$sbname.tar.gz
+wget --show-progress -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$sbcore/$sbname.tar.gz
 if [[ -f '/etc/s-box/sing-box.tar.gz' ]]; then
 tar xzf /etc/s-box/sing-box.tar.gz -C /etc/s-box
 mv /etc/s-box/$sbname/sing-box /etc/s-box
@@ -1253,7 +1256,11 @@ if [[ -f '/etc/systemd/system/sing-box.service' ]]; then
 red "已安装Sing-box服务，无法再次安装" && exit
 fi
 mkdir -p /etc/s-box
-v6 ; openyn ; inssb ; inscertificate ; insport
+v6 ; sleep 1
+openyn ; sleep 1
+inssb ; sleep 1
+inscertificate ; sleep 1
+insport ; sleep 1
 echo
 blue "Vless-reality相关key与id将自动生成……"
 key_pair=$(/etc/s-box/sing-box generate reality-keypair)
@@ -1265,8 +1272,8 @@ wget -q -O /root/geosite.db https://github.com/MetaCubeX/meta-rules-dat/releases
 wget -q -O /root/geoip.db https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.db
 inssbjsonser && sbservice && sbactive
 if [[ ! $vi =~ lxc|openvz ]]; then
-sysctl -w net.core.rmem_max=2500000 > /dev/null
-sysctl -p > /dev/null
+sysctl -w net.core.rmem_max=2500000 >/dev/null 2>&1
+sysctl -p >/dev/null 2>&1
 fi
 red "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 green "五、针对vmess-ws协议，加入Cloudflared-Argo临时隧道功能"
@@ -1695,8 +1702,8 @@ sb
 fi
 }
 sbymfl(){
-[[ $(systemctl is-active warp-svc) = active ]] && warp_s4_ip="当前IP：$(curl -4sx socks5h://localhost:40000 icanhazip.com -k)" || warp_s4_ip='无warp-s5的IPV4，黑名单模式'
-[[ $(systemctl is-active warp-svc) = active ]] && warp_s6_ip="当前IP：$(curl -6sx socks5h://localhost:40000 icanhazip.com -k)" || warp_s6_ip='无warp-s5的IPV6，黑名单模式'
+[[ $(systemctl is-active warp-svc 2>/dev/null) = active ]] && warp_s4_ip="当前IP：$(curl -4sx socks5h://localhost:40000 icanhazip.com -k)" || warp_s4_ip='无warp-s5的IPV4，黑名单模式'
+[[ $(systemctl is-active warp-svc 2>/dev/null) = active ]] && warp_s6_ip="当前IP：$(curl -6sx socks5h://localhost:40000 icanhazip.com -k)" || warp_s6_ip='无warp-s5的IPV6，黑名单模式'
 v4v6
 if [[ -z $v4 ]]; then
 vps_ipv4='无本地IPV4，黑名单模式'      
@@ -2046,7 +2053,7 @@ sb
 fi
 green "开始下载并更新Sing-box内核……请稍等"
 sbname="sing-box-$upcore-linux-$cpu"
-wget -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$upcore/$sbname.tar.gz
+wget --show-progress -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$upcore/$sbname.tar.gz
 if [[ -f '/etc/s-box/sing-box.tar.gz' ]]; then
 tar xzf /etc/s-box/sing-box.tar.gz -C /etc/s-box
 mv /etc/s-box/$sbname/sing-box /etc/s-box
