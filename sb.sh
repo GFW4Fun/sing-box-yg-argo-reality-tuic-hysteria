@@ -62,10 +62,13 @@ green "首次安装Sing-box-yg脚本必要的依赖……"
 update(){
 if [ -x "$(command -v apt-get)" ]; then
 apt update -y
+apt install wget -y
 elif [ -x "$(command -v yum)" ]; then
 yum update -y && yum install epel-release -y
+yum update wget -y
 elif [ -x "$(command -v dnf)" ]; then
 dnf update -y
+dnf update wget -y
 fi
 }
 if [[ $release = Centos && ${vsid} =~ 8 ]]; then
@@ -77,8 +80,8 @@ yum clean all && yum makecache
 cd
 fi
 update
-packages=("curl" "openssl" "jq" "iptables" "iptables-persistent" "tar" "qrencode" "wget" "cron")
-inspackages=("curl" "openssl" "jq" "iptables" "iptables-persistent" "tar" "qrencode" "wget" "cron")
+packages=("curl" "openssl" "jq" "iptables" "iptables-persistent" "tar" "qrencode" "cron")
+inspackages=("curl" "openssl" "jq" "iptables" "iptables-persistent" "tar" "qrencode" "cron")
 for i in "${!packages[@]}"; do
 package="${packages[$i]}"
 inspackage="${inspackages[$i]}"
@@ -196,7 +199,7 @@ green "一、开始下载并安装Sing-box正式版内核……请稍等"
 echo
 sbcore=$(curl -Ls https://data.jsdelivr.com/v1/package/gh/SagerNet/sing-box | grep -Eo '"[0-9.]+",' | sed -n 1p | tr -d '",')
 sbname="sing-box-$sbcore-linux-$cpu"
-wget --show-progress -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$sbcore/$sbname.tar.gz
+wget -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$sbcore/$sbname.tar.gz
 if [[ -f '/etc/s-box/sing-box.tar.gz' ]]; then
 tar xzf /etc/s-box/sing-box.tar.gz -C /etc/s-box
 mv /etc/s-box/$sbname/sing-box /etc/s-box
@@ -2053,7 +2056,7 @@ sb
 fi
 green "开始下载并更新Sing-box内核……请稍等"
 sbname="sing-box-$upcore-linux-$cpu"
-wget --show-progress -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$upcore/$sbname.tar.gz
+wget -q -O /etc/s-box/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$upcore/$sbname.tar.gz
 if [[ -f '/etc/s-box/sing-box.tar.gz' ]]; then
 tar xzf /etc/s-box/sing-box.tar.gz -C /etc/s-box
 mv /etc/s-box/$sbname/sing-box /etc/s-box
@@ -2073,7 +2076,7 @@ fi
 unins(){
 systemctl stop sing-box >/dev/null 2>&1
 systemctl disable sing-box >/dev/null 2>&1
-kill -15 $(cat /etc/s-box/sbargopid.log) >/dev/null 2>&1
+kill -15 $(cat /etc/s-box/sbargopid.log >/dev/null 2>&1) 
 rm -f /etc/systemd/system/sing-box.service
 rm -rf /etc/s-box sbyg_update /usr/bin/sb /root/geosite.db /root/geoip.db
 uncronsb
