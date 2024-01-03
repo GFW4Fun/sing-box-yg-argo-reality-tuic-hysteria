@@ -43,10 +43,8 @@ if [[ $bit = "aarch64" ]]; then
 cpu="arm64"
 elif [[ $bit = "x86_64" ]]; then
 amdv=$(cat /proc/cpuinfo | grep flags | head -n 1 | cut -d: -f2)
-case "$amdv" in
-*avx2*) cpu="amd64v3";;
-*) cpu="amd64";;
-esac
+a=$(cat /proc/cpuinfo | grep flags | head -n 1 | cut -d: -f2)
+[[ $amdv == *avx2* && $amdv == *f16c* ]] && cpu="amd64v3" || cpu="amd64"
 else
 red "目前脚本不支持 $bit 架构" && exit
 fi
@@ -57,6 +55,7 @@ bbr="Openvz版bbr-plus"
 else
 bbr="Openvz/Lxc"
 fi
+hostname=$(hostname)
 if [ ! -f sbyg_update ]; then
 green "首次安装Sing-box-yg脚本必要的依赖……"
 update(){
@@ -145,7 +144,6 @@ ipv=prefer_ipv6
 else
 endip=162.159.193.10
 ipv=prefer_ipv4
-echo '4' > /etc/s-box/i
 fi
 }
 warpcheck
@@ -811,6 +809,293 @@ white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo
 }
 sb_client(){
+inscore=$(/etc/s-box/sing-box version 2>/dev/null | awk '/version/{print $NF}')
+if [[ "$inscore" == 1.8* ]]; then
+cat > /etc/s-box/sing_box_client.json <<EOF
+{
+  "log": {
+    "disabled": false,
+    "level": "info",
+    "timestamp": true
+  },
+  "experimental": {
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "external_ui": "ui",
+      "external_ui_download_url": "",
+      "external_ui_download_detour": "",
+      "secret": "",
+      "default_mode": "Rule"
+       },
+      "cache_file": {
+            "enabled": true,
+            "path": "cache.db",
+            "store_fakeip": true
+        }
+    },
+    "dns": {
+        "servers": [
+            {
+                "tag": "proxydns",
+                "address": "$sbdnsip",             
+                "detour": "select"
+            },
+            {
+                "tag": "localdns",
+                "address": "h3://223.5.5.5/dns-query",
+                "detour": "direct"
+            },
+            {
+                "address": "rcode://refused",
+                "tag": "block"
+            },
+            {
+                "tag": "dns_fakeip",
+                "address": "fakeip"
+            }
+        ],
+        "rules": [
+            {
+                "outbound": "any",
+                "server": "localdns",
+                "disable_cache": true
+            },
+            {
+                "clash_mode": "Global",
+                "server": "proxydns"
+            },
+            {
+                "clash_mode": "Direct",
+                "server": "localdns"
+            },
+            {
+                "rule_set": "geosite-cn",
+                "server": "localdns"
+            },
+            {
+                 "rule_set": "geosite-geolocation-!cn",
+                 "server": "proxydns"
+            },
+             {
+                "rule_set": "geosite-geolocation-!cn",         
+                "query_type": [
+                    "A",
+                    "AAAA"
+                ],
+                "server": "dns_fakeip"
+            }
+          ],
+           "fakeip": {
+           "enabled": true,
+           "inet4_range": "198.18.0.0/15",
+           "inet6_range": "fc00::/18"
+         },
+          "independent_cache": true,
+          "final": "proxydns"
+        },
+      "inbounds": [
+    {
+      "type": "tun",
+      "inet4_address": "172.19.0.1/30",
+      "inet6_address": "fdfe:dcba:9876::1/126",
+      "auto_route": true,
+      "strict_route": true,
+      "sniff": true
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "select",
+      "type": "selector",
+      "default": "auto",
+      "outbounds": [
+        "auto",
+        "vless-$hostname",
+        "vmess-$hostname",
+        "hy2-$hostname",
+        "tuic5-$hostname"
+      ]
+    },
+    {
+      "type": "vless",
+      "tag": "vless-$hostname",
+      "server": "$server_ipcl",
+      "server_port": $vl_port,
+      "uuid": "$uuid",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "$vl_name",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+      "reality": {
+          "enabled": true,
+          "public_key": "$public_key",
+          "short_id": "$short_id"
+        }
+      }
+    },
+{
+            "server": "$cl_vm_ip",
+            "server_port": $vm_port,
+            "tag": "vmess-$hostname",
+            "tls": {
+                "enabled": $tls,
+                "server_name": "$vm_name",
+                "insecure": false,
+                "utls": {
+                    "enabled": true,
+                    "fingerprint": "chrome"
+                }
+            },
+            "transport": {
+                "headers": {
+                    "Host": [
+                        "$vm_name"
+                    ]
+                },
+                "path": "$uuid-vm",
+                "type": "ws"
+            },
+            "type": "vmess",
+            "security": "auto",
+            "uuid": "$uuid"
+        },
+    {
+        "type": "hysteria2",
+        "tag": "hy2-$hostname",
+        "server": "$cl_hy2_ip",
+        "server_port": $hy2_port,
+        "password": "$uuid",
+        "tls": {
+            "enabled": true,
+            "server_name": "$hy2_name",
+            "insecure": $hy2_ins,
+            "alpn": [
+                "h3"
+            ]
+        }
+    },
+        {
+            "type":"tuic",
+            "tag": "tuic5-$hostname",
+            "server": "$cl_tu5_ip",
+            "server_port": $tu5_port,
+            "uuid": "$uuid",
+            "password": "$uuid",
+            "congestion_control": "bbr",
+            "udp_relay_mode": "native",
+            "udp_over_stream": false,
+            "zero_rtt_handshake": false,
+            "heartbeat": "10s",
+            "tls":{
+                "enabled": true,
+                "server_name": "$tu5_name",
+                "insecure": $tu5_ins,
+                "alpn": [
+                    "h3"
+                ]
+            }
+        },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "block",
+      "type": "block"
+    },
+    {
+      "tag": "dns-out",
+      "type": "dns"
+    },
+    {
+      "tag": "auto",
+      "type": "urltest",
+      "outbounds": [
+        "vless-$hostname",
+        "vmess-$hostname",
+        "hy2-$hostname",
+        "tuic5-$hostname"
+      ],
+      "url": "https://cp.cloudflare.com/generate_204",
+      "interval": "1m",
+      "tolerance": 50,
+      "interrupt_exist_connections": false
+    }
+  ],
+  "route": {
+      "rule_set": [
+            {
+                "tag": "geosite-geolocation-!cn",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/geolocation-!cn.srs",
+                "download_detour": "select",
+                "update_interval": "1d"
+            },
+            {
+                "tag": "geosite-cn",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/geolocation-cn.srs",
+                "download_detour": "select",
+                "update_interval": "1d"
+            },
+            {
+                "tag": "geoip-cn",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geoip/cn.srs",
+                "download_detour": "select",
+                "update_interval": "1d"
+            }
+        ],
+    "auto_detect_interface": true,
+    "final": "select",
+    "rules": [
+      {
+        "outbound": "dns-out",
+        "protocol": "dns"
+      },
+      {
+        "clash_mode": "Direct",
+        "outbound": "direct"
+      },
+      {
+        "clash_mode": "Global",
+        "outbound": "select"
+      },
+      {
+        "rule_set": "geoip-cn",
+        "outbound": "direct"
+      },
+      {
+        "rule_set": "geosite-cn",
+        "outbound": "direct"
+      },
+      {
+      "ip_is_private": true,
+      "outbound": "direct"
+      },
+      {
+        "rule_set": "geosite-geolocation-!cn",
+        "outbound": "select"
+      }
+    ]
+  },
+    "ntp": {
+    "enabled": true,
+    "server": "time.apple.com",
+    "server_port": 123,
+    "interval": "30m",
+    "detour": "direct"
+  }
+}
+EOF
+else
 cat > /etc/s-box/sing_box_client.json <<EOF
 {
   "log": {
@@ -1072,6 +1357,7 @@ cat > /etc/s-box/sing_box_client.json <<EOF
   }
 }
 EOF
+fi
 cat > /etc/s-box/clash_meta_client.yaml <<EOF
 port: 7890
 allow-lan: true
@@ -1225,9 +1511,6 @@ a=$hy2_ports
 sed -i "/server:/ s/$/$a/" /etc/s-box/v2rayn_hy2.yaml
 fi
 sed -i 's/server: \(.*\)/server: "\1"/' /etc/s-box/v2rayn_hy2.yaml
-if [[ -f /etc/s-box/i ]]; then
-sed -i 's/"inet6_address":/\/\/&/' /etc/s-box/sing_box_client.json
-fi
 }
 cfargo(){
 tls=$(jq -r '.inbounds[1].tls.enabled' /etc/s-box/sb.json)
